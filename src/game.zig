@@ -245,23 +245,6 @@ pub const Game = struct{
         return any_block;
     }
 
-    fn checkOverlap(self: *const Game, block_pos: [4][2]isize) bool {
-        const state = self.state;
-        var any_overlap = false; 
-        for (block_pos) |pos| {
-            const col = pos[1];
-            if ((col >= MAXCOLS) or (col < 0)) {
-                return true;
-            }
-            const row = pos[0];
-            if ((row >= MAXROWS) or (row < 0)) {
-                return true;
-            }
-            any_overlap = any_overlap or state.array[@as(usize, @intCast(row))][@as(usize, @intCast(col))];
-        }
-        return any_overlap;
-    }
-
     fn superRotationSystem(self: *const Game, input: tih.UserInput) ?[2]isize {
         const tetra_i = self.active_tetramino;
         switch (input) {
