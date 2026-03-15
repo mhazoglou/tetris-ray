@@ -1,3 +1,4 @@
+const State = @import("game.zig").State;
 
 pub const Tetramino = union(enum) {
     I: I_piece,
@@ -138,6 +139,27 @@ pub const Tetramino = union(enum) {
             },
         };
     }
+
+    pub fn superRotationSystemLogic(self: Tetramino, propose_rot_tetra: Tetramino, state: State) ?[2]isize {
+        const offset_arr_i = self.offset();
+        const tmp_blk_pos = propose_rot_tetra.get_blocks();
+        const offset_arr_o = propose_rot_tetra.offset();
+        var offset_blk_pos: [4][2]isize = undefined;
+        var wall_kick_arr: [5][2]isize = undefined;
+        for (0..wall_kick_arr.len) |i| {
+            wall_kick_arr[i][0] = offset_arr_i[i][0] - offset_arr_o[i][0];
+            wall_kick_arr[i][1] = offset_arr_i[i][1] - offset_arr_o[i][1];
+            for (0..offset_blk_pos.len) |j| {
+                offset_blk_pos[j][0] = tmp_blk_pos[j][0] + wall_kick_arr[i][0];
+                offset_blk_pos[j][1] = tmp_blk_pos[j][1] + wall_kick_arr[i][1];
+            }
+            if (~state.checkOverlap(offset_blk_pos)) {
+                return wall_kick_arr[i];
+            }
+        } else {
+            return null;
+        }
+    } 
 
 };
 
