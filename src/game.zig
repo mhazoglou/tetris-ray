@@ -202,11 +202,12 @@ pub const Game = struct{
 
     fn spawnTetramino(self: *Game) bool {
         self.tetramino_num += 1;
-        const idx = self.tetramino_num % 7;
-        if (idx == 0) {
+        const idx = self.tetramino_num % self.tetramino_seq.len;
+        self.active_tetramino = Tetramino.init(self.tetramino_seq[idx]);
+        //shuffle when you get to the last piece in current queue
+        if (idx == 6) { 
             self.shufflePieces();
         }
-        self.active_tetramino = Tetramino.init(self.tetramino_seq[idx]);
         return self.state.checkOverlap(
             self.active_tetramino.get_blocks()
         );
@@ -239,8 +240,12 @@ pub const Game = struct{
     fn increaseLevel(self: *Game) void {
         self.level += 1;
         const level = @as(f64, @floatFromInt(self.level));
-        // self.timeToDrop = (800_000_000 - self.level * 7_000_000);
-        self.timeToDrop = @as(u64, @intFromFloat(1_000_000_000 * std.math.pow(f64, (0.8 - level * 0.007), level)));
+        self.timeToDrop = @as(
+            u64, 
+            @intFromFloat(
+                1_000_000_000 * std.math.pow(f64, (0.8 - level * 0.007), level)
+            )
+        );
     }
 
     fn leftBlocked(self: *Game) bool {
@@ -345,14 +350,16 @@ pub const Game = struct{
             }
             try writer.print("{s}", .{stl.right_border});
             switch (row) {
-                2 => try writer.print("{[val]s: ^[pad]}", .{.val = "Score:", .pad = RIGHTSIDEPANEL}),
-                3 => try writer.print("{[val]: ^[pad]}", .{ .val = self.score, .pad = RIGHTSIDEPANEL}),
-                5 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Level:", .pad = RIGHTSIDEPANEL}),
-                6 => try writer.print("{[val]: ^[pad]}", .{ .val = self.level, .pad = RIGHTSIDEPANEL}),
-                8 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Lines:", .pad = RIGHTSIDEPANEL}),
-                9 => try writer.print("{[val]: ^[pad]}", .{ .val = self.lines_cleared,.pad = RIGHTSIDEPANEL}),
-                11 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Next:",.pad = RIGHTSIDEPANEL}),
-                12 => try writer.print("{[val]c: ^[pad]}", .{ .val = self.tetramino_seq[self.tetramino_num % 7],.pad = RIGHTSIDEPANEL}),
+                3 => try writer.print("{[val]s: ^[pad]}", .{.val = "Score:", .pad = RIGHTSIDEPANEL}),
+                4 => try writer.print("{[val]: ^[pad]}", .{ .val = self.score, .pad = RIGHTSIDEPANEL}),
+                6 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Level:", .pad = RIGHTSIDEPANEL}),
+                7 => try writer.print("{[val]: ^[pad]}", .{ .val = self.level, .pad = RIGHTSIDEPANEL}),
+                9 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Lines:", .pad = RIGHTSIDEPANEL}),
+                10 => try writer.print("{[val]: ^[pad]}", .{ .val = self.lines_cleared,.pad = RIGHTSIDEPANEL}),
+                12 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Next:",.pad = RIGHTSIDEPANEL}),
+                13 => try writer.print("{[val]c: ^[pad]}", .{ .val = self.tetramino_seq[
+                    (self.tetramino_num + 1) % self.tetramino_seq.len
+                ], .pad = RIGHTSIDEPANEL}),
                 else => { 
                     for (0..RIGHTSIDEPANEL) |_| {
                         try writer.print("{s}", .{stl.empty});
