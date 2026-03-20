@@ -25,6 +25,7 @@ const LEFTSIDEPANEL = 20; // character width
 const RIGHTSIDEPANEL = 20; // character width
 const BUFFERSIZE = 4096;
 const LOCKTIME = 500_000_000; // 500 ms
+const LINESFORLEVELUP = 5;
 
 pub const State = Matrix(MAXROWS, MAXCOLS);
 
@@ -38,7 +39,8 @@ pub const Game = struct{
     timeToDrop: u64, // time in ns to move one down inverse of gravity
     // timer: std.time.Timer,
     style: style.Style,
-    level: u64,
+    lines_cleared: u64,
+    level: u64, // level minus one
     score: u64,
     
     pub fn init(rand: *std.Random) Game {
@@ -50,10 +52,11 @@ pub const Game = struct{
             .tetramino_num = 0,
             .tetramino_seq = buffer,
             .rand = rand,
-            .timeToDrop = 500_000_000,
+            .timeToDrop = 1_000_000_000, // 1 sec
             // .timer = std.time.Timer.start() catch unreachable,
             .style = style.base_style,
-            .level = 1,
+            .lines_cleared = 0,
+            .level = 0,
             .score = 0,
         };
     }
@@ -106,11 +109,32 @@ pub const Game = struct{
                         std.debug.print("{f}", .{self});
                     }
                 },
+                .HardDropButton => {
+                    while(!self.downBlocked()) {
+                        self.active_tetramino.move_down();
+                    } else {
+                        self.lockTetramino();
+                        running = !self.spawnTetramino();
+                    }
+                    std.debug.print("{f}", .{self});
+                },
                 .DownButton => {
                     if (!self.downBlocked()) {
                         self.active_tetramino.move_down();
                         std.debug.print("{f}", .{self});
+                    } else {
+                        if (!in_lock_delay) {
+                            in_lock_delay = true;
+                            time_lock = timer.read();
+                        } else {
+                            if ((timer.read() - time_lock) > LOCKTIME) {
+                                self.lockTetramino();
+                                running = !self.spawnTetramino();
+                                in_lock_delay = false;
+                            }
+                        }
                     }
+
                 },
                 .RotCWButton => {
                     const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCWButton);
@@ -161,7 +185,6 @@ pub const Game = struct{
                             self.lockTetramino();
                             running = !self.spawnTetramino();
                             in_lock_delay = false;
-                            timer.reset();
                         }
                     }
                 }
@@ -203,6 +226,10 @@ pub const Game = struct{
                 idx += 1;
             }
         }
+        self.lines_cleared += idx;
+        if ((idx > 0) and (@divFloor(self.lines_cleared, LINESFORLEVELUP) > self.level)) {
+            self.increaseLevel();
+        }
         std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
         for (0..idx) |i| {
             self.state.shiftRowsDown(row_full_arr[i]);
@@ -211,6 +238,8 @@ pub const Game = struct{
 
     fn increaseLevel(self: *Game) void {
         self.level += 1;
+        self.timeToDrop = (800_000_000 - self.level * 7_000_000);
+        // self.timeToDrop = 1_000_000_000 * @as(u64, @intFromFloat(std.math.pow(f64, (0.8 - level * 0.007), level)));
     }
 
     fn leftBlocked(self: *Game) bool {
@@ -314,8 +343,20 @@ pub const Game = struct{
                 }
             }
             try writer.print("{s}", .{stl.right_border});
-            for (0..RIGHTSIDEPANEL) |_| {
-                try writer.print("{s}", .{stl.empty});
+            switch (row) {
+                2 => try writer.print("{[val]s: ^[pad]}", .{.val = "Score:", .pad = RIGHTSIDEPANEL}),
+                3 => try writer.print("{[val]: ^[pad]}", .{ .val = self.score, .pad = RIGHTSIDEPANEL}),
+                5 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Level:", .pad = RIGHTSIDEPANEL}),
+                6 => try writer.print("{[val]: ^[pad]}", .{ .val = self.level, .pad = RIGHTSIDEPANEL}),
+                8 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Lines:", .pad = RIGHTSIDEPANEL}),
+                9 => try writer.print("{[val]: ^[pad]}", .{ .val = self.lines_cleared,.pad = RIGHTSIDEPANEL}),
+                11 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Next:",.pad = RIGHTSIDEPANEL}),
+                12 => try writer.print("{[val]c: ^[pad]}", .{ .val = self.tetramino_seq[self.tetramino_num % 7],.pad = RIGHTSIDEPANEL}),
+                else => { 
+                    for (0..RIGHTSIDEPANEL) |_| {
+                        try writer.print("{s}", .{stl.empty});
+                    }
+                },
             }
             try writer.print("{s}\n", .{stl.right_border});
         }

@@ -38,6 +38,8 @@ pub fn InputHandler(reader: *Io.Reader, writer: *Io.Writer) !UserInput {
             return UserInput.PauseButton;
         } else if (c == '\t') {
             return UserInput.PauseButton;
+        } else if (c == ' ') {
+            return UserInput.HardDropButton;
         } else if (c == '\x7F') {
             continue: blk;
         } else if (c == '\x1B') {
