@@ -325,7 +325,7 @@ pub const Game = struct{
         }
         try writer.print("{s}", .{stl.upper_tee});
         for (0..state.columns) |_| {
-            try writer.print("{s}" ** 2, .{stl.top_border, stl.top_border});
+            try writer.print("{0s}" ** 2, .{stl.top_border});//, stl.top_border});
         }
         try writer.print("{s}", .{stl.upper_tee});
         for (0..RIGHTSIDEPANEL) |_| {
@@ -337,7 +337,7 @@ pub const Game = struct{
         for (2..state.rows) |row| {
             try writer.print("{s}", .{stl.left_border});
             for (0..LEFTSIDEPANEL) |_| {
-                try writer.print("{s}", .{stl.empty});
+                try writer.print(" ", .{});
             }
             try writer.print("{s}", .{stl.left_border});
             for (0..state.columns) |col| {
@@ -345,10 +345,11 @@ pub const Game = struct{
             ) {
                     try writer.print("{s}", .{stl.mino_block});
                 } else {
-                    try writer.print("{s}" ** 2, .{stl.empty, stl.empty});
+                    try writer.print("{s}", .{stl.empty_block});
                 }
             }
             try writer.print("{s}", .{stl.right_border});
+            const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
             switch (row) {
                 3 => try writer.print("{[val]s: ^[pad]}", .{.val = "Score:", .pad = RIGHTSIDEPANEL}),
                 4 => try writer.print("{[val]: ^[pad]}", .{ .val = self.score, .pad = RIGHTSIDEPANEL}),
@@ -357,13 +358,85 @@ pub const Game = struct{
                 9 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Lines:", .pad = RIGHTSIDEPANEL}),
                 10 => try writer.print("{[val]: ^[pad]}", .{ .val = self.lines_cleared,.pad = RIGHTSIDEPANEL}),
                 12 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Next:",.pad = RIGHTSIDEPANEL}),
-                13 => try writer.print("{[val]c: ^[pad]}", .{ .val = self.tetramino_seq[
-                    (self.tetramino_num + 1) % self.tetramino_seq.len
-                ], .pad = RIGHTSIDEPANEL}),
-                else => { 
-                    for (0..RIGHTSIDEPANEL) |_| {
-                        try writer.print("{s}", .{stl.empty});
+                13 => {
+                    // try writer.print("{[val]c: ^[pad]}", .{ .val = next, .pad = RIGHTSIDEPANEL});
+                    switch (next) {
+                        'I' => try writer.print(" " ** RIGHTSIDEPANEL, .{}),
+                        'O' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
+                            try writer.print("{[val]s}{[val]s}", .{.val = stl.mino_block});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
+                        },
+                        'J' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val1]s}{[val2]s}{[val2]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'L' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val2]s}{[val2]s}{[val1]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'T' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val2]s}{[val1]s}{[val2]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'S' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val2]s}{[val1]s}{[val1]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'Z' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val1]s}{[val1]s}{[val2]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        else => unreachable,
                     }
+                },
+                14 => {
+                    switch (next) {
+                        'I' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 8) / 2), .{});
+                            try writer.print("{[val]s}{[val]s}{[val]s}{[val]s}", .{.val = stl.mino_block});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 8) / 2), .{});
+                        },
+                        'O' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
+                            try writer.print("{[val]s}{[val]s}", .{.val = stl.mino_block});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
+                        },
+                        'J' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val]s}{[val]s}{[val]s}", .{.val = stl.mino_block});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'L' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val]s}{[val]s}{[val]s}", .{.val = stl.mino_block});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'T' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val]s}{[val]s}{[val]s}", .{.val = stl.mino_block});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'S' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val1]s}{[val1]s}{[val2]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        'Z' => {
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                            try writer.print("{[val2]s}{[val1]s}{[val1]s}", .{.val1 = stl.mino_block, .val2 = "  "});
+                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
+                        },
+                        else => unreachable,
+                    }
+                },
+                else => { 
+                    try writer.print(" " ** RIGHTSIDEPANEL, .{});
                 },
             }
             try writer.print("{s}\n", .{stl.right_border});

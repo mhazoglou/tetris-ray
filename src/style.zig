@@ -10,7 +10,7 @@ pub const Style = struct {
     bottom_border: []const u8,
     left_border: []const u8,
     right_border: []const u8,
-    empty: []const u8,
+    empty_block: []const u8,
     mino_block: []const u8,
 };
 
@@ -25,8 +25,23 @@ pub const base_style: Style = .{
     .bottom_border =  "\u{2501}",
     .left_border = "\u{2503}",
     .right_border =  "\u{2503}",
-    .empty = " ",
+    .empty_block = "  ",
     .mino_block = "\u{2588}" ** 2,
+};
+
+pub const blocky_style: Style = .{
+    .upper_left_corner =  "\u{250F}",
+    .upper_right_corner = "\u{2513}",
+    .lower_left_corner = "\u{2517}",
+    .lower_right_corner = "\u{251B}",
+    .upper_tee = "\u{2533}",
+    .lower_tee = "\u{253B}",
+    .top_border = "\u{2501}",
+    .bottom_border =  "\u{2501}",
+    .left_border = "\u{2503}",
+    .right_border =  "\u{2503}",
+    .empty_block = "◾",
+    .mino_block = "◽",
 };
 
 pub const ascii_style: Style = .{
@@ -40,6 +55,6 @@ pub const ascii_style: Style = .{
     .bottom_border =  "-",
     .left_border = "|",
     .right_border =  "|",
-    .empty = " ",
+    .empty_block = " .",
     .mino_block = "[]",
 };
