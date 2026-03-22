@@ -359,7 +359,6 @@ pub const Game = struct{
                 10 => try writer.print("{[val]: ^[pad]}", .{ .val = self.lines_cleared,.pad = RIGHTSIDEPANEL}),
                 12 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Next:",.pad = RIGHTSIDEPANEL}),
                 13 => {
-                    // try writer.print("{[val]c: ^[pad]}", .{ .val = next, .pad = RIGHTSIDEPANEL});
                     switch (next) {
                         'I' => try writer.print(" " ** RIGHTSIDEPANEL, .{}),
                         'O' => {
