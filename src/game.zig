@@ -5,6 +5,7 @@ const fs = std.fs;
 const File = std.fs.File;
 const tih = @import("termios_input_handler.zig");
 const Tetramino = @import("tetramino.zig").Tetramino;
+const menu = @import("menu.zig");
 const style = @import("style.zig");
 const colors = @import("colors.zig");
 
@@ -35,6 +36,7 @@ pub const Game = struct{
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
     score: u64,
+    menu: menu.Menu,
     running: bool,
     
     pub fn init(rand: *std.Random) Game {
@@ -56,6 +58,7 @@ pub const Game = struct{
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
+            .menu = menu.Menu.init(),
             .running = true,
         };
     }
@@ -72,7 +75,7 @@ pub const Game = struct{
         var new_settings: posix.termios = old_settings;
         new_settings.lflag.ICANON = false;
         new_settings.lflag.ECHO = false;
-        new_settings.cc[6] = 0; //VMIN
+        new_settings.cc[6] = 1; //VMIN
         new_settings.cc[5] = 0; //VTIME
         new_settings.lflag.ECHOE = false;
 
@@ -88,35 +91,104 @@ pub const Game = struct{
 
         try writer.print("{f}", .{self});
         try writer.flush();
-        while (self.running) {
-            var input = try tih.InputHandler(reader);
 
-            switch (input) {
-                .LeftButton => {
-                    if (!self.leftBlocked()) {
-                        self.active_tetramino.move_left();
+        // while (self.running)
+        loop: switch (self.menu.state) {
+            .ExitGame => {
+                _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
+                try writer.print("\x1B[?25h", .{});
+                try writer.flush();
+            },
+            .InGame => {
+                new_settings.cc[6] = 0; //VMIN
+                _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
+                const input = try tih.InputHandler(reader);
+
+                switch (input) {
+                    .LeftButton => {
+                        if (!self.leftBlocked()) {
+                            self.active_tetramino.move_left();
+                            try writer.print("{f}", .{self});
+                            try writer.flush();
+                        }
+                    },
+                    .RightButton => {
+                        if (!self.rightBlocked()) {
+                            self.active_tetramino.move_right();
+                            try writer.print("{f}", .{self});
+                            try writer.flush();
+                        }
+                    },
+                    .HardDropButton => {
+                        while(!self.downBlocked()) {
+                            self.active_tetramino.move_down();
+                        } else {
+                            self.lockTetramino();
+                            self.running = !self.spawnTetramino();
+                        }
                         try writer.print("{f}", .{self});
                         try writer.flush();
-                    }
-                },
-                .RightButton => {
-                    if (!self.rightBlocked()) {
-                        self.active_tetramino.move_right();
+                    },
+                    .UpButton => {
+                        const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCWButton);
+                        if (opt_wall_kick) |wall_kick| {
+                            self.active_tetramino.rot_CW(wall_kick);
+                            self.in_lock_delay = false;
+                            try writer.print("{f}", .{self});
+                            try writer.flush();
+                        }
+                    },
+                    .DownButton => {
+                        if (!self.downBlocked()) {
+                            self.active_tetramino.move_down();
+                        } else {
+                            self.lockDelay();
+                        }
                         try writer.print("{f}", .{self});
                         try writer.flush();
-                    }
-                },
-                .HardDropButton => {
-                    while(!self.downBlocked()) {
-                        self.active_tetramino.move_down();
-                    } else {
-                        self.lockTetramino();
-                        self.running = !self.spawnTetramino();
-                    }
-                    try writer.print("{f}", .{self});
-                    try writer.flush();
-                },
-                .DownButton => {
+                    },
+                    .RotCWButton => {
+                        const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCWButton);
+                        if (opt_wall_kick) |wall_kick| {
+                            self.active_tetramino.rot_CW(wall_kick);
+                            self.in_lock_delay = false;
+                            try writer.print("{f}", .{self});
+                            try writer.flush();
+                        }
+                    },
+                    .RotCCWButton => {
+                        const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCCWButton);
+                        if (opt_wall_kick) |wall_kick| {
+                            self.active_tetramino.rot_CCW(wall_kick);
+                            self.in_lock_delay = false;
+                            try writer.print("{f}", .{self});
+                            try writer.flush();
+                        }
+                    },
+                    .PauseButton => {
+                        // blocking 
+                        new_settings.cc[6] = 1; //VMIN
+                        _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
+                        self.menu.state = .{ .PauseMenu = menu.pauseScreen };
+                        // var paused = true;
+                        // while (paused) {
+                        //     input = try tih.InputHandler(reader);
+                        //     std.debug.print("{any}", .{input});
+                        //     switch (input) {
+                        //         .PauseButton => {
+                        //             new_settings.cc[6] = 0; //VMIN
+                        //             _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
+                        //             paused = false;
+                        //         },
+                        //         else => continue,
+                        //     }
+                        // }
+                    },
+                    .ExitGameButton => self.menu.state = .ExitGame,// running = false,
+                    .Idle => {},
+                }
+
+                if ((self.timer.read() - self.time_drop) > self.timeToDrop) {
                     if (!self.downBlocked()) {
                         self.active_tetramino.move_down();
                     } else {
@@ -124,59 +196,17 @@ pub const Game = struct{
                     }
                     try writer.print("{f}", .{self});
                     try writer.flush();
-                },
-                .RotCWButton => {
-                    const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCWButton);
-                    if (opt_wall_kick) |wall_kick| {
-                        self.active_tetramino.rot_CW(wall_kick);
-                        self.in_lock_delay = false;
-                        try writer.print("{f}", .{self});
-                        try writer.flush();
-                    }
-                },
-                .RotCCWButton => {
-                    const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCCWButton);
-                    if (opt_wall_kick) |wall_kick| {
-                        self.active_tetramino.rot_CCW(wall_kick);
-                        self.in_lock_delay = false;
-                        try writer.print("{f}", .{self});
-                        try writer.flush();
-                    }
-                },
-                .PauseButton => {
-                    var paused = true;
-                    // blocking 
-                    new_settings.cc[6] = 1; //VMIN
-                    _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
-                    while (paused) {
-                        input = try tih.InputHandler(reader);
-                        std.debug.print("{any}", .{input});
-                        switch (input) {
-                            .PauseButton => {
-                                new_settings.cc[6] = 0; //VMIN
-                                _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
-                                paused = false;
-                            },
-                            else => continue,
-                        }
-                    }
-                },
-                .ExitGameButton => self.running = false,
-                else => {},
-            }
-
-            if ((self.timer.read() - self.time_drop) > self.timeToDrop) {
-                if (!self.downBlocked()) {
-                    self.active_tetramino.move_down();
-                } else {
-                    self.lockDelay();
+                    self.time_drop = self.timer.read();
                 }
-                try writer.print("{f}", .{self});
-                try writer.flush();
-                self.time_drop = self.timer.read();
-            }
-        } else {
-            _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
+                continue :loop self.menu.state;
+            },
+            else => {
+                // blocking 
+                new_settings.cc[6] = 1; //VMIN
+                _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
+                try self.menu.menu_loop(reader, writer);
+                continue :loop self.menu.state;
+            },
         }
     }
 

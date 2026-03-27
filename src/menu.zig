@@ -4,6 +4,7 @@ const File = fs.File;
 const Io = std.Io;
 const posix = std.posix;
 const tih = @import("termios_input_handler.zig");
+const Game = @import("game.zig").Game;
 
 const BUFFERSIZE = 4096;
 
@@ -37,6 +38,22 @@ pub fn main() !void {
     _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
 }
 
+// \\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
+// \\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
+// \\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
+
+// \\┃                 ┃    ╭─╮╭─╮╷ ╷╭─╮╭─╴╶┬╮    ┃                 ┃
+// \\┃                 ┃    ├─╯├─┤│ │╰─╮├╴  ││    ┃                 ┃
+// \\┃                 ┃    ╵  ╵ ╵╰─╯╰─╯╰─╴╶┴╯    ┃                 ┃
+
+// \\┃                 ┃╭─╴╭─╮╭┬╮╭─╴  ╭─╮╷ ╷╭─╴╭─╮┃                 ┃
+// \\┃                 ┃│╶╮├─┤│││├╴   │ ││╭╯├╴ ├┬╯┃                 ┃
+// \\┃                 ┃╰─╯╵ ╵╵ ╵╰─╴  ╰─╯╰╯ ╰─╴╵╰╴┃                 ┃
+
+// \\┃                 ┃  ╭─╮╭─╴╶┬╴╶┬╴╷╭╮╷╭─╴╭─╮  ┃                 ┃
+// \\┃                 ┃  ╰─╮├╴  │  │ ││╰┤│╶╮╰─╮  ┃                 ┃
+// \\┃                 ┃  ╰─╯╰─╴ ╵  ╵ ╵╵ ╵╰─╯╰─╯  ┃                 ┃
+
 // ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮
 //  │ ├╴  │ ├┬╯│╰─╮
 //  ╵ ╰─╴ ╵ ╵╰╴╵╰─╯
@@ -45,28 +62,17 @@ pub fn main() !void {
 // ├─╯├─┤│ │╰─╮├╴  ││
 // ╵  ╵ ╵╰─╯╰─╯╰─╴╶┴╯
 
-//\\┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓                 ┃
-//\\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
-//\\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
-//\\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
-//\\┃                 ┗━━━━━━━━┓        ┏━━━━━━━━┛                 ┃
-//\\┃                    ┃     ┃        ┃     ┃                    ┃
-//\\┃                    ┃     ┃        ┃     ┃                    ┃
-//\\┃                    ┃     ┃        ┃     ┃                    ┃
-//\\┃                    ┃     ┗━━━━━━━━┛     ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃    {} Marathon      ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃    {} Settings      ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃    {}   Quit        ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┗━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━┛
+// ╭─╴╭─╮╭┬╮╭─╴   ╭─╮╷ ╷╭─╴╭─╮
+// │╶╮├─┤│││├╴    │ ││╭╯├╴ ├┬╯
+// ╰─╯╵ ╵╵ ╵╰─╴   ╰─╯╰╯ ╰─╴╵╰╴
+
+// ╭─╮╭─╴╶┬╴╶┬╴╷╭╮╷╭─╴╭─╮
+// ╰─╮├╴  │  │ ││╰┤│╶╮╰─╮
+// ╰─╯╰─╴ ╵  ╵ ╵╵ ╵╰─╯╰─╯
+
+// ╭─╴╭─╮╭╮╷╶┬╴╭─╮╭─╮╷  ╭─╮
+// │  │ ││╰┤ │ ├┬╯│ ││  ╰─╮
+// ╰─╴╰─╯╵ ╵ ╵ ╵╰╴╰─╯╰─╴╰─╯
 
 //\\┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
 //\\┃                    ┃                    ┃                    ┃
@@ -81,157 +87,95 @@ pub fn main() !void {
 //\\┃                    ┃     ┃        ┃     ┃                    ┃
 //\\┃                    ┃     ┃        ┃     ┃                    ┃
 //\\┃                    ┃     ┗━━━━━━━━┛     ┃                    ┃
+//\\┃                    ┃                    ┃                    ┃
+//\\┃                    ┃      Marathon      ┃                    ┃
 //\\┃                    ┃                    ┃                    ┃
 //\\┃                    ┃      Settings      ┃                    ┃
 //\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃      Theme A       ┃                    ┃
-//\\┃                    ┃                    ┃                    ┃
-//\\┃                    ┃      Default       ┃                    ┃
+//\\┃                    ┃        Quit        ┃                    ┃
 //\\┃                    ┃                    ┃                    ┃
 //\\┃                    ┃                    ┃                    ┃
 //\\┗━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━┛
 
 
-// 
-// pub const Config = struct {};
-// 
-
-const StartMenuPosition = enum{
-    Marathon,
-    Settings,
-    Quit,
-
-    pub fn cycleDown(self: *StartMenuPosition) void {
-            switch (self) {
-            .Marathon => self.* = .Settings,
-            .Settings => self.* = .Quit,
-            .Quit =>     self.* = .Marathon,
-        }
-    }
-
-    pub fn cycleUp(self: *StartMenuPosition) void {
-        switch (self) {
-            .Marathon => self.* = .Quit,
-            .Settings => self.* = .Marathon,
-            .Quit =>     self.* = .Settings,
-        }
-    }
-};
-
-const SettingsMenuPosition = enum{
-    Theme,
-    Controls,
-    Return,
-
-    pub fn cycleDown(self: *SettingsMenuPosition) void {
-            switch (self) {
-            .Theme => self.* = .Controls,
-            .Controls => self.* = .Return,
-            .Return => self.* = .Theme,
-        }
-    }
-
-    pub fn cycleUp(self: *SettingsMenuPosition) void {
-        switch (self) {
-            .Theme => self.* = .Return,
-            .Controls => self.* = .Theme,
-            .Return => self.* = .Controls,
-        }
-    }
-};
-
-const PauseMenuPosition = enum{
-    Continue,
-    Settings,
-    Return,
-    Quit,
-
-    pub fn cycleDown(self: *PauseMenuPosition) void {
-            switch (self) {
-            .Continue => self.* = .Settings,
-            .Settings => self.* = .Return,
-            .Return => self.* = .Quit,
-            .Quit =>     self.* = .Continue,
-        }
-    }
-
-    pub fn cycleUp(self: *PauseMenuPosition) void {
-        switch (self) {
-            .Continue => self.* = .Quit, 
-            .Settings => self.* = .Continue,
-            .Return => self.* = .Settings,
-            .Quit =>     self.* = .Return,
-        }
-    }
-};
-
 const MenuState = union(enum) {
-    StartMenu: StartMenuPosition,
-    SettingsMenu: SettingsMenuPosition,
-    PauseMenu: PauseMenuPosition,
+    StartMenu: StartScreen,
+    SettingsMenu: SettingsScreen,
+    InGame,
+    PauseMenu: PauseScreen,
+    GameOverMenu: GameOverScreen,
+    ExitGame,
 };
 
-const Position = enum {
+const Position = enum(u8) {
     zero,
     one,
     two,
     three,
 };
 
-pub fn MenuScreen(
-    zero_str: []const u8, 
-    first_str: []const u8, 
-    second_str: []const u8, 
-    third_str: []const u8
-) type {
+pub fn MenuScreen() type {
     return struct {
         const Self = @This();
 
         position: Position,
         max_position: Position,
-        running: bool,
+        zero_str: []const u8, 
+        first_str: []const u8, 
+        second_str: []const u8, 
+        third_str: []const u8,
+        banner: []const u8,
 
-        pub fn init(max_position: Position) Self {
+        pub fn init(
+            max_position: Position,
+            zero_str: []const u8, 
+            first_str: []const u8, 
+            second_str: []const u8, 
+            third_str: []const u8,
+            banner: []const u8,
+        ) Self {
             return .{
                 .position = .zero,
                 .max_position = max_position,
-                .running = true
+                .zero_str = zero_str,
+                .first_str  = first_str, 
+                .second_str = second_str, 
+                .third_str = third_str,
+                .banner = banner,
             };
         }
 
         pub fn cycleDown(self: *Self) void {
-            switch (*self.position) {
-                .zero => self.position.* = .one,
-                .one => self.position.* = .two,
-                .two => self.position.* = .three,
-                .three => self.position.* = .zero,
-            }
+            var pos = @intFromEnum(self.position);
+            const max = @intFromEnum(self.max_position);
+            pos = if (pos == max) 0 else (pos + 1) % (max + 1);
+            self.position = @enumFromInt(pos);
         }
 
-        pub fn cycleUp(self: *PauseMenuPosition) void {
-            switch (*self.position) {
-                .zero => self.position.* = .three,
-                .one => self.position.* = .zero,
-                .two => self.position.* = .one,
-                .three => self.position.* = .two,
-            }
+        pub fn cycleUp(self: *Self) void {
+            var pos = @intFromEnum(self.position);
+            const max = @intFromEnum(self.max_position);
+            pos = if (pos == 0) max else (pos - 1) % (max + 1);
+            self.position = @enumFromInt(pos);
         }
 
         pub fn format(self: Self, writer: *Io.Writer) !void {
             const p_struct = switch (self.position) {
-                .zero => .{"▶", zero_str, " ", first_str, " ", second_str, " ", third_str},
-                .one => .{" ", zero_str, "▶", first_str, " ", second_str, " ", third_str},
-                .two => .{" ", zero_str, " ", first_str, "▶", second_str, " ", third_str},
-                .three => .{" ", zero_str, " ", first_str, " ", second_str, "▶", third_str},
+                .zero =>  .{self.banner, "▶", self.zero_str, " ", 
+                    self.first_str, " ", self.second_str, " ", self.third_str},
+                .one =>   .{self.banner, " ", self.zero_str, "▶", 
+                    self.first_str, " ", self.second_str, " ", self.third_str},
+                .two =>   .{self.banner, " ", self.zero_str, " ", 
+                    self.first_str, "▶", self.second_str, " ", self.third_str},
+                .three => .{self.banner, " ", self.zero_str, " ", 
+                    self.first_str, " ", self.second_str, "▶", self.third_str},
             };
             try writer.print("\x1B[?25l\x1B[H\x1B[2J" ++
     \\┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
     \\┃                    ┃                    ┃                    ┃
     \\┃                    ┃                    ┃                    ┃
     \\┃                 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓                 ┃
-    \\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
-    \\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
-    \\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
+++ "\n{s}\n" ++
     \\┃                 ┗━━━━━━━━┓        ┏━━━━━━━━┛                 ┃
     \\┃                    ┃     ┃        ┃     ┃                    ┃
     \\┃                    ┃     ┃        ┃     ┃                    ┃
@@ -252,13 +196,40 @@ pub fn MenuScreen(
 
     };
 }
+
+const StartScreen = MenuScreen();
+const SettingsScreen = MenuScreen();
+const PauseScreen = MenuScreen();
+const GameOverScreen = MenuScreen();
+
+pub const startScreen = StartScreen.init(Position.two, "Marathon", "Settings", "Quit", "",
+\\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
+\\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
+\\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
+);
+pub const settingsScreen = SettingsScreen.init(Position.two, "Theme", "Controls", "Return", "",
+\\┃                 ┃  ╭─╮╭─╴╶┬╴╶┬╴╷╭╮╷╭─╴╭─╮  ┃                 ┃
+\\┃                 ┃  ╰─╮├╴  │  │ ││╰┤│╶╮╰─╮  ┃                 ┃
+\\┃                 ┃  ╰─╯╰─╴ ╵  ╵ ╵╵ ╵╰─╯╰─╯  ┃                 ┃
+);
+pub const pauseScreen = PauseScreen.init(Position.three, "Continue", "Settings", "Return", "Quit",
+\\┃                 ┃    ╭─╮╭─╮╷ ╷╭─╮╭─╴╶┬╮    ┃                 ┃
+\\┃                 ┃    ├─╯├─┤│ │╰─╮├╴  ││    ┃                 ┃
+\\┃                 ┃    ╵  ╵ ╵╰─╯╰─╯╰─╴╶┴╯    ┃                 ┃
+);
+pub const gameOverScreen = GameOverScreen.init(Position.two, "Retry", "Return", "Quit", "", 
+\\┃                 ┃╭─╴╭─╮╭┬╮╭─╴  ╭─╮╷ ╷╭─╴╭─╮┃                 ┃
+\\┃                 ┃│╶╮├─┤│││├╴   │ ││╭╯├╴ ├┬╯┃                 ┃
+\\┃                 ┃╰─╯╵ ╵╵ ╵╰─╴  ╰─╯╰╯ ╰─╴╵╰╴┃                 ┃
+);
+
 pub const Menu = struct {
     state: MenuState,
     running: bool,
 
     pub fn init() Menu {
         return .{
-            .state = .{ .StartMenu = .Marathon },
+            .state = .{ .StartMenu = startScreen },
             .running = true,
         };
     }
@@ -272,7 +243,10 @@ pub const Menu = struct {
             switch (input) {
                 .DownButton => self.cycleDown(),
                 .UpButton => self.cycleUp(),
-                .PauseButton => self.selected(),
+                .PauseButton => {
+                    self.selected();
+                    break;
+                },
                 .ExitGameButton => self.running = false,
                 else => {},
             }
@@ -282,59 +256,66 @@ pub const Menu = struct {
     }
 
     fn cycleUp(self: *Menu) void {
-        switch (*self.state) {
-            _ => |pos| {
+        switch (self.state) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |*pos| {
                 pos.cycleUp();
             },
+            else => {},
         }
     }
 
     fn cycleDown(self: *Menu) void {
-        switch (*self.state) {
-            _ => |pos| {
+        switch (self.state) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |*pos| {
                 pos.cycleDown();
             },
+            else => {}
         }
     }
 
     fn selected(self: *Menu) void {
-        switch (self.position) {
-            .Marathon => {},
-            .Settings => self.state = .SettingsMenu,
-            .Quit =>     self.running = false,
+        switch (self.state) {
+            .StartMenu => |screen| {
+                switch (screen.position) {
+                    .zero => self.state = .InGame,
+                    .one => self.state = .{ .SettingsMenu = settingsScreen},
+                    .two => self.state = .ExitGame,
+                    .three => unreachable,
+                }
+            },
+            .SettingsMenu => |screen| {
+                switch (screen.position) {
+                    .zero => {}, //need to implement theme select
+                    .one => {}, // need to implement control customization
+                    .two => self.state = .{ .StartMenu = startScreen},
+                    .three => unreachable,
+                }
+            },
+            .PauseMenu => |screen| {
+                switch (screen.position) {
+                    .zero => self.state = .InGame,
+                    .one => self.state = .{ .SettingsMenu = settingsScreen},
+                    .two => self.state = .{ .StartMenu = startScreen},
+                    .three => self.state = .ExitGame,
+                }
+            },
+            .GameOverMenu => |screen| {
+                switch (screen.position) {
+                    .zero => self.state = .InGame,
+                    .one => self.state = .{ .StartMenu = startScreen},
+                    .two => self.state =  .ExitGame,
+                    .three => unreachable,
+                }
+            },
+            else => {},
         }
     }
 
     pub fn format(self: Menu, writer: *Io.Writer) !void {
-        const p_struct = switch (self.position) {
-            .Marathon => .{"▶", " ", " "},
-            .Settings => .{" ", "▶", " "},
-            .Quit =>     .{" ", " ", "▶"},
-        };
-        try writer.print("\x1B[?25l\x1B[H\x1B[2J" ++
-\\┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
-\\┃                    ┃                    ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┃                 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓                 ┃
-\\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
-\\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
-\\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
-\\┃                 ┗━━━━━━━━┓        ┏━━━━━━━━┛                 ┃
-\\┃                    ┃     ┃        ┃     ┃                    ┃
-\\┃                    ┃     ┃        ┃     ┃                    ┃
-\\┃                    ┃     ┃        ┃     ┃                    ┃
-\\┃                    ┃     ┗━━━━━━━━┛     ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┃                    ┃    {s} Marathon      ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┃                    ┃    {s} Settings      ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┃                    ┃    {s}   Quit        ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┃                    ┃                    ┃                    ┃
-\\┗━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━┛
-        , p_struct);
+        switch (self.state) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |screen| try writer.print("{f}", .{screen}),
+            else => {},
+        }
     }
 
 };
