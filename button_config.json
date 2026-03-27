@@ -1,11 +1,11 @@
 {
-    "left": "\x1B[D",
-    "right": "\x1B[C",
-    "soft_drop": "\x1B[B",
+    "left": "\\x1B[D",
+    "right": "\\x1B[C",
+    "soft_drop": "\\x1B[B",
     "hard_drop": " ",
-    "hold": "\x1B[A",
+    "hold": "\\x1B[A",
     "rotCW": "x",
     "rotCCW": "z",
-    "pause": "\n",
-    "exit": "\x1B",
+    "pause": "\\n",
+    "exit": "\\x1B",
 }

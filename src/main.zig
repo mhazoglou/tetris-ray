@@ -7,10 +7,10 @@ pub fn main() !void {
     // defer _ = gpa.deinit();
     // const allocator = gpa.allocator();
 
-    // const file_name = "button_config.json";
+    // const file_name = "../button_config.json";
     // const file = try std.fs.cwd().openFile(
     //     file_name, 
-    //     .{ .mode = .read_only },
+    //     .{ .mode = .read_write },
     // );
     // defer file.close();
 

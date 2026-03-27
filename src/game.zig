@@ -8,18 +8,6 @@ const Tetramino = @import("tetramino.zig").Tetramino;
 const style = @import("style.zig");
 const colors = @import("colors.zig");
 
-pub fn main() !void {
-    var prng: std.Random.DefaultPrng = .init(blk: {
-        var seed: u64 = undefined;
-        try posix.getrandom(std.mem.asBytes(&seed));
-        break :blk seed;
-    });
-    var rand = prng.random();
-    var game = Game.init(&rand);
-
-    try game.gameLoop();
-}
-
 const MAXROWS = 22;
 const MAXCOLS = 10;
 const LEFTSIDEPANEL = 20; // character width
@@ -32,40 +20,47 @@ pub const State = Matrix(MAXROWS, MAXCOLS);
 
 pub const Game = struct{
 
-    active_tetramino: Tetramino,
     state: State,
+    active_tetramino: Tetramino,
+    hold_tetramino: ?Tetramino,
     tetramino_num: u64,
     tetramino_seq: [7]u8,
     rand: *std.Random,
     timeToDrop: u64, // time in ns to move one down inverse of gravity
-    // timer: std.time.Timer,
+    timer: std.time.Timer,
+    time_lock: u64,
+    time_drop: u64,
+    in_lock_delay: bool,
     style: style.Style,
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
     score: u64,
-    hold_tetramino: ?Tetramino,
+    running: bool,
     
     pub fn init(rand: *std.Random) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
         rand.shuffle(u8, &buffer);
         return .{
-            .active_tetramino = Tetramino.init(buffer[0]),
             .state = State.init(),
+            .active_tetramino = Tetramino.init(buffer[0]),
+            .hold_tetramino = null,
             .tetramino_num = 0,
             .tetramino_seq = buffer,
             .rand = rand,
             .timeToDrop = 1_000_000_000, // 1 sec
-            // .timer = std.time.Timer.start() catch unreachable,
+            .timer = std.time.Timer.start() catch unreachable,
+            .time_lock = 0,
+            .time_drop = 0,
+            .in_lock_delay = false,
             .style = style.base_style,
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
-            .hold_tetramino = null,
+            .running = true,
         };
     }
 
     pub fn gameLoop(self: *Game) !void {
-        var running: bool = true;
 
         const tty_file = try fs.openFileAbsolute("/dev/tty", .{});
         defer tty_file.close();
@@ -91,13 +86,10 @@ pub const Game = struct{
         var stdout_writer = File.stdout().writer(&stdout_buffer);
         const writer = &stdout_writer.interface;
 
-        std.debug.print("{f}", .{self});
-        var timer = std.time.Timer.start() catch unreachable;
-        var time_lock = timer.read();
-        var time_drop = timer.read();
-        var in_lock_delay = false;
-        while (running) {
-            var input = try tih.InputHandler(reader, writer);
+        try writer.print("{f}", .{self});
+        try writer.flush();
+        while (self.running) {
+            var input = try tih.InputHandler(reader);
 
             switch (input) {
                 .LeftButton => {
@@ -119,7 +111,7 @@ pub const Game = struct{
                         self.active_tetramino.move_down();
                     } else {
                         self.lockTetramino();
-                        running = !self.spawnTetramino();
+                        self.running = !self.spawnTetramino();
                     }
                     try writer.print("{f}", .{self});
                     try writer.flush();
@@ -127,27 +119,17 @@ pub const Game = struct{
                 .DownButton => {
                     if (!self.downBlocked()) {
                         self.active_tetramino.move_down();
-                        try writer.print("{f}", .{self});
-                        try writer.flush();
                     } else {
-                        if (!in_lock_delay) {
-                            in_lock_delay = true;
-                            time_lock = timer.read();
-                        } else {
-                            if ((timer.read() - time_lock) > LOCKTIME) {
-                                self.lockTetramino();
-                                running = !self.spawnTetramino();
-                                in_lock_delay = false;
-                            }
-                        }
+                        self.lockDelay();
                     }
-
+                    try writer.print("{f}", .{self});
+                    try writer.flush();
                 },
                 .RotCWButton => {
                     const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCWButton);
                     if (opt_wall_kick) |wall_kick| {
                         self.active_tetramino.rot_CW(wall_kick);
-                        in_lock_delay = false;
+                        self.in_lock_delay = false;
                         try writer.print("{f}", .{self});
                         try writer.flush();
                     }
@@ -156,53 +138,58 @@ pub const Game = struct{
                     const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCCWButton);
                     if (opt_wall_kick) |wall_kick| {
                         self.active_tetramino.rot_CCW(wall_kick);
-                        in_lock_delay = false;
+                        self.in_lock_delay = false;
                         try writer.print("{f}", .{self});
                         try writer.flush();
                     }
                 },
                 .PauseButton => {
                     var paused = true;
+                    // blocking 
+                    new_settings.cc[6] = 1; //VMIN
+                    _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
                     while (paused) {
-                        // blocking 
-                        new_settings.cc[6] = 1; //VMIN
-                        _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
-                        input = try tih.InputHandler(reader, writer);
+                        input = try tih.InputHandler(reader);
+                        std.debug.print("{any}", .{input});
                         switch (input) {
                             .PauseButton => {
                                 new_settings.cc[6] = 0; //VMIN
                                 _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
                                 paused = false;
                             },
-                            else => {},
+                            else => continue,
                         }
                     }
                 },
-                .ExitGameButton => running = false,
+                .ExitGameButton => self.running = false,
                 else => {},
             }
 
-            if ((timer.read() - time_drop) > self.timeToDrop) {
+            if ((self.timer.read() - self.time_drop) > self.timeToDrop) {
                 if (!self.downBlocked()) {
                     self.active_tetramino.move_down();
                 } else {
-                    if (!in_lock_delay) {
-                        in_lock_delay = true;
-                        time_lock = timer.read();
-                    } else {
-                        if ((timer.read() - time_lock) > LOCKTIME) {
-                            self.lockTetramino();
-                            running = !self.spawnTetramino();
-                            in_lock_delay = false;
-                        }
-                    }
+                    self.lockDelay();
                 }
                 try writer.print("{f}", .{self});
                 try writer.flush();
-                time_drop = timer.read();
+                self.time_drop = self.timer.read();
             }
         } else {
             _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
+        }
+    }
+
+    fn lockDelay(self: *Game) void {
+        if (!self.in_lock_delay) {
+            self.in_lock_delay = true;
+            self.time_lock = self.timer.read();
+        } else {
+            if ((self.timer.read() - self.time_lock) > LOCKTIME) {
+                self.lockTetramino();
+                self.running = !self.spawnTetramino();
+                self.in_lock_delay = false;
+            }
         }
     }
 

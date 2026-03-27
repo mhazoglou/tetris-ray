@@ -1,5 +1,5 @@
 const std = @import("std");
-const builtin = std.builtin;
+const builtin = @import("builtin");
 const Io = std.Io;
 const posix = std.posix;
 const fs = std.fs;
@@ -18,11 +18,18 @@ pub const UserInput = enum{
     ExitGameButton,
 };
 
-pub const is_posix: bool = switch (builtin.os.tag) {
+pub const is_posix: bool = switch (builtin.os.tag)  {
     .windows, .uefi, .wasi => false,
     else => true,
 };
 
+comptime{
+    if (!is_posix) {
+        @compileError(
+            "Only Posix compliant operating systems are supported. :("
+        );
+    }
+}
 pub const InputMapping = struct {
     left: []u8,
     right: []u8,
@@ -35,51 +42,48 @@ pub const InputMapping = struct {
     exit: []u8,
 };
 
-pub fn InputHandler(reader: *Io.Reader, writer: *Io.Writer) !UserInput {
+pub fn InputHandler(reader: *Io.Reader) !UserInput {
 
-    while (true) {
-        const str: []u8 = reader.takeDelimiterExclusive(0) catch |err| switch (err) {
-            error.EndOfStream => {
-                return UserInput.Idle;
-            },
-            error.ReadFailed => {
-                return err;
-            },
-            error.StreamTooLong => {
-                return err;
-            },
+    // while (true) {
+        // var buffer: [1024]u8 = .{0} ** 1024;
+        // const length = try reader.readSliceShort(&buffer);
+        // // if (length == 0) return UserInput.Idle;
+        // const str: []u8 = buffer[0..length];
+        
+        const char: u8 = reader.takeByte() catch |err| switch (err) {
+            error.EndOfStream => return .Idle,
+            else => return err,
         };
-        if (std.mem.eql(u8, str, "\n")) {
-            return UserInput.PauseButton;
+        switch (char) {
+            '\n' => return .PauseButton,
+            '\t' => return .PauseButton,
+            ' ' => return .HardDropButton,
+            'x' => return .RotCWButton,
+            'z' => return .RotCCWButton,
+            '\x1B' => {
+                const next_char = reader.takeByte() catch |err| switch (err) {
+                    error.EndOfStream => return .ExitGameButton,
+
+                    else => return err,
+                };
+
+                switch (next_char) {
+                    '[' => {
+                        const nn_char = try reader.takeByte();
+                        switch (nn_char) {
+                            'A' => return .UpButton,
+                            'B' => return .DownButton,
+                            'C' => return .RightButton,
+                            'D' => return .LeftButton,
+                            else => return .Idle,
+                        }
+                    },
+                    'O' => return .Idle,
+                    else => return .Idle,
+                }
+
+            },
+            else => return .Idle,
         }
-        if (std.mem.eql(u8, str, "\t")) {
-            return UserInput.PauseButton;
-        }
-        if (std.mem.eql(u8, str, " ")) {
-            return UserInput.HardDropButton;
-        }
-        if (std.mem.eql(u8, str, "\x1B")) {
-            return UserInput.ExitGameButton;
-        }
-        if (std.mem.eql(u8, str, "\x1B[A")) {
-            return UserInput.UpButton;
-        } 
-        if (std.mem.eql(u8, str, "\x1B[B")) {
-            return UserInput.DownButton;
-        }
-        if (std.mem.eql(u8, str, "\x1B[C")) {
-            return UserInput.RightButton;
-        }
-        if (std.mem.eql(u8, str, "\x1B[D")) {
-            return UserInput.LeftButton;
-        } else {
-            try writer.print("Unhandled", .{});
-        }
-        if (std.mem.eql(u8, str, "x")) {
-            return UserInput.RotCWButton;
-        }
-        if (std.mem.eql(u8, str, "z")) {
-            return UserInput.RotCCWButton;
-        }
-    }
+    // }
 }
