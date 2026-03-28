@@ -62,6 +62,23 @@ pub const Game = struct{
             .running = true,
         };
     }
+    
+    pub fn reset(self: *Game) void {
+        self.state = State.init();
+        self.tetramino_num = 0;
+        self.shufflePieces();
+        self.active_tetramino = Tetramino.init(self.tetramino_seq[0]);
+        self.hold_tetramino = null;
+        self.timeToDrop = 1_000_000_000;
+        self.time_lock = 0;
+        self.time_drop = 0;
+        self.in_lock_delay = false;
+        self.timer.reset();
+        self.lines_cleared = 0;
+        self.level_sub_one = 0;
+        self.score = 0;
+        self.running = true;
+    }
 
     pub fn gameLoop(self: *Game) !void {
 
@@ -92,7 +109,6 @@ pub const Game = struct{
         try writer.print("{f}", .{self});
         try writer.flush();
 
-        // while (self.running)
         loop: switch (self.menu.state) {
             .ExitGame => {
                 _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
@@ -100,8 +116,10 @@ pub const Game = struct{
                 try writer.flush();
             },
             .InGame => {
-                new_settings.cc[6] = 0; //VMIN
-                _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
+                if (new_settings.cc[6] != 0) {
+                    new_settings.cc[6] = 0; //VMIN
+                    _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
+                }
                 const input = try tih.InputHandler(reader);
 
                 switch (input) {
@@ -170,19 +188,6 @@ pub const Game = struct{
                         new_settings.cc[6] = 1; //VMIN
                         _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
                         self.menu.state = .{ .PauseMenu = menu.pauseScreen };
-                        // var paused = true;
-                        // while (paused) {
-                        //     input = try tih.InputHandler(reader);
-                        //     std.debug.print("{any}", .{input});
-                        //     switch (input) {
-                        //         .PauseButton => {
-                        //             new_settings.cc[6] = 0; //VMIN
-                        //             _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
-                        //             paused = false;
-                        //         },
-                        //         else => continue,
-                        //     }
-                        // }
                     },
                     .ExitGameButton => self.menu.state = .ExitGame,// running = false,
                     .Idle => {},
@@ -197,6 +202,10 @@ pub const Game = struct{
                     try writer.print("{f}", .{self});
                     try writer.flush();
                     self.time_drop = self.timer.read();
+                }
+                if (!self.running) {
+                    self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
+                    self.reset();
                 }
                 continue :loop self.menu.state;
             },
