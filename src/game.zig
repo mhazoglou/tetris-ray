@@ -88,7 +88,7 @@ pub const Game = struct{
 
         const old_settings = try posix.tcgetattr(tty_fd);
 
-        // Set non-blocking (polling)
+        // Set blocking
         var new_settings: posix.termios = old_settings;
         new_settings.lflag.ICANON = false;
         new_settings.lflag.ECHO = false;
@@ -138,12 +138,15 @@ pub const Game = struct{
                         }
                     },
                     .HardDropButton => {
+                        var cells: u64 = 0; 
                         while(!self.downBlocked()) {
                             self.active_tetramino.move_down();
+                            cells += 1;
                         } else {
                             self.lockTetramino();
                             self.running = !self.spawnTetramino();
                         }
+                        self.score += 2 * cells;
                         try writer.print("{f}", .{self});
                         try writer.flush();
                     },
@@ -159,6 +162,7 @@ pub const Game = struct{
                     .DownButton => {
                         if (!self.downBlocked()) {
                             self.active_tetramino.move_down();
+                            self.score += 1;
                         } else {
                             self.lockDelay();
                         }
@@ -264,6 +268,15 @@ pub const Game = struct{
             }
         }
         self.lines_cleared += idx;
+        if (idx == 1) {
+            self.score += 100 * (self.level_sub_one + 1);
+        } else if (idx == 2) {
+            self.score += 300 * (self.level_sub_one + 1);
+        } else if (idx == 3) {
+            self.score += 500 * (self.level_sub_one + 1);
+        } else if (idx == 4) {
+            self.score += 800 * (self.level_sub_one + 1);
+        }
         if ((idx > 0) and (@divFloor(self.lines_cleared, LINESFORLEVELUP) > self.level_sub_one)) {
             self.increaseLevel();
         }
@@ -361,7 +374,7 @@ pub const Game = struct{
         }
         try writer.print("{s}", .{stl.upper_tee});
         for (0..state.columns) |_| {
-            try writer.print("{0s}" ** 2, .{stl.top_border});//, stl.top_border});
+            try writer.print("{0s}" ** 2, .{stl.top_border});
         }
         try writer.print("{s}", .{stl.upper_tee});
         for (0..RIGHTSIDEPANEL) |_| {

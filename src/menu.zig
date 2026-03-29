@@ -225,34 +225,29 @@ pub const gameOverScreen = GameOverScreen.init(Position.two, "Retry", "Return", 
 
 pub const Menu = struct {
     state: MenuState,
-    running: bool,
 
     pub fn init() Menu {
         return .{
             .state = .{ .StartMenu = startScreen },
-            .running = true,
         };
     }
 
     pub fn menu_loop(self: *Menu, reader: *Io.Reader, writer: *Io.Writer) !void {
         try writer.print("{f}", .{self});
         try writer.flush();
-        while (self.running) {
-            const input: tih.UserInput = try tih.InputHandler(reader);
+        const input: tih.UserInput = try tih.InputHandler(reader);
 
-            switch (input) {
-                .DownButton => self.cycleDown(),
-                .UpButton => self.cycleUp(),
-                .PauseButton => {
-                    self.selected();
-                    break;
-                },
-                .ExitGameButton => self.running = false,
-                else => {},
-            }
-            try writer.print("{f}", .{self});
-            try writer.flush();
+        switch (input) {
+            .DownButton => self.cycleDown(),
+            .UpButton => self.cycleUp(),
+            .PauseButton => {
+                self.selected();
+            },
+            .ExitGameButton => self.state = .ExitGame,
+            else => {},
         }
+        try writer.print("{f}", .{self});
+        try writer.flush();
     }
 
     fn cycleUp(self: *Menu) void {
