@@ -37,10 +37,11 @@ pub const Game = struct{
     level_sub_one: u64, // level minus one
     score: u64,
     menu: menu.Menu,
+    imap: *tih.InputMapping,
     running: bool,
     just_held: bool,
     
-    pub fn init(rand: *std.Random) Game {
+    pub fn init(rand: *std.Random, imap: *tih.InputMapping) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
         rand.shuffle(u8, &buffer);
         return .{
@@ -60,6 +61,7 @@ pub const Game = struct{
             .level_sub_one = 0,
             .score = 0,
             .menu = menu.Menu.init(),
+            .imap = imap,
             .running = true,
             .just_held = false,
         };
@@ -115,7 +117,7 @@ pub const Game = struct{
         loop: switch (self.menu.state) {
             .ExitGame => {
                 _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
-                try writer.print("\x1B[?25h", .{});
+                try writer.print("\x1B[?25h\n", .{});
                 try writer.flush();
             },
             .InGame => {
@@ -123,7 +125,7 @@ pub const Game = struct{
                     new_settings.cc[6] = 0; //VMIN
                     _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
                 }
-                const input = try tih.InputHandler(reader);
+                const input = try tih.InputHandler(reader, self.imap.*);
 
                 switch (input) {
                     .LeftButton => {
@@ -214,7 +216,7 @@ pub const Game = struct{
                 // blocking 
                 new_settings.cc[6] = 1; //VMIN
                 _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
-                try self.menu.menu_loop(reader, writer);
+                try self.menu.menu_loop(reader, writer, self.imap.*);
                 continue :loop self.menu.state;
             },
         }

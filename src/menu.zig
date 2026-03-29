@@ -232,10 +232,12 @@ pub const Menu = struct {
         };
     }
 
-    pub fn menu_loop(self: *Menu, reader: *Io.Reader, writer: *Io.Writer) !void {
+    pub fn menu_loop(self: *Menu, reader: *Io.Reader, 
+        writer: *Io.Writer, imap: tih.InputMapping
+    ) !void {
         try writer.print("{f}", .{self});
         try writer.flush();
-        const input: tih.UserInput = try tih.InputHandler(reader);
+        const input: tih.UserInput = try tih.InputHandler(reader, imap);
 
         switch (input) {
             .DownButton => self.cycleDown(),
