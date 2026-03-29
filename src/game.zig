@@ -23,7 +23,7 @@ pub const Game = struct{
 
     state: State,
     active_tetramino: Tetramino,
-    hold_tetramino: ?Tetramino,
+    hold_tetramino: ?u8,
     tetramino_num: u64,
     tetramino_seq: [7]u8,
     rand: *std.Random,
@@ -38,6 +38,7 @@ pub const Game = struct{
     score: u64,
     menu: menu.Menu,
     running: bool,
+    just_held: bool,
     
     pub fn init(rand: *std.Random) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
@@ -60,6 +61,7 @@ pub const Game = struct{
             .score = 0,
             .menu = menu.Menu.init(),
             .running = true,
+            .just_held = false,
         };
     }
     
@@ -78,6 +80,7 @@ pub const Game = struct{
         self.level_sub_one = 0;
         self.score = 0;
         self.running = true;
+        self.just_held = false;
     }
 
     pub fn gameLoop(self: *Game) !void {
@@ -151,13 +154,7 @@ pub const Game = struct{
                         try writer.flush();
                     },
                     .UpButton => {
-                        const opt_wall_kick = self.superRotationSystem(tih.UserInput.RotCWButton);
-                        if (opt_wall_kick) |wall_kick| {
-                            self.active_tetramino.rot_CW(wall_kick);
-                            self.in_lock_delay = false;
-                            try writer.print("{f}", .{self});
-                            try writer.flush();
-                        }
+                        self.holdPiece();
                     },
                     .DownButton => {
                         if (!self.downBlocked()) {
@@ -254,6 +251,7 @@ pub const Game = struct{
     }
 
     fn lockTetramino(self: *Game) void {
+        self.just_held = false;
         const block_pos_arr = self.active_tetramino.get_blocks();
         // initialize with max usize by wrapping subtraction
         var row_full_arr: [4]usize = .{ @as(usize, 0) -% 1 } ** 4;
@@ -347,7 +345,7 @@ pub const Game = struct{
         return any_block;
     }
 
-    fn superRotationSystem(self: *const Game, input: tih.UserInput) ?[2]isize {
+    fn superRotationSystem(self: Game, input: tih.UserInput) ?[2]isize {
         const tetra_i = self.active_tetramino;
         switch (input) {
             .RotCWButton => {
@@ -360,6 +358,28 @@ pub const Game = struct{
             },
             else => unreachable,
         }
+    }
+
+    fn holdPiece(self: *Game) void {
+        if (self.just_held) {
+            return;
+        }
+        const prev_act = self.active_tetramino;
+        if (self.hold_tetramino) |char| {
+            self.active_tetramino = Tetramino.init(char);
+        } else {
+            self.running = !self.spawnTetramino();
+        }
+        self.hold_tetramino = switch (prev_act) {
+            .I => 'I',
+            .O => 'O',
+            .J => 'J',
+            .L => 'L',
+            .T => 'T',
+            .S => 'S',
+            .Z => 'Z',
+        };
+        self.just_held = true;
     }
 
     pub fn format(self: Game, writer: *Io.Writer) !void {
