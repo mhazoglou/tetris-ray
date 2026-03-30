@@ -407,10 +407,95 @@ pub const Game = struct{
         // game field and HUD
         for (2..state.rows) |row| {
             try writer.print("{s}", .{stl.left_border});
-            for (0..LEFTSIDEPANEL) |_| {
-                try writer.print(" ", .{});
+            switch (row) {
+                3 => try writer.print("{[val]s: ^[pad]}", .{.val = "Hold:", .pad = LEFTSIDEPANEL}),
+                4 => {
+                    if (self.hold_tetramino) |char|{
+                        switch (char) {
+                            'I' => try writer.print(" " ** LEFTSIDEPANEL, .{}),
+                            'O' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}", .{colors.YELLOW, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
+                            },
+                            'J' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("{0f}{1s}    ", .{colors.BLUE, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'L' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("    {0f}{1s}", .{colors.PEACH, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'T' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("  {0f}{1s}  ", .{colors.MAUVE, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'S' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("  {0f}{1s}{1s}", .{colors.GREEN, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'Z' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}  ", .{colors.RED, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            else => unreachable,
+                        }
+                    } else {
+                        try writer.print(" " ** LEFTSIDEPANEL, .{});
+                    }
+                },
+                5 => {
+                    if (self.hold_tetramino) |char|{
+                        switch (char) {
+                            'I' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 8) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}{1s}{1s}", .{colors.SKY, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 8) / 2), .{});
+                            },
+                            'O' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}", .{colors.YELLOW, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
+                            },
+                            'J' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}{1s}", .{colors.BLUE, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'L' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}{1s}", .{colors.PEACH, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'T' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}{1s}", .{colors.MAUVE, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'S' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("{0f}{1s}{1s}  ", .{colors.GREEN, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            'Z' => {
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                                try writer.print("  {0f}{1s}{1s}", .{colors.RED, stl.mino_block});
+                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
+                            },
+                            else => unreachable,
+                        }
+                    } else{
+                        try writer.print(" " ** LEFTSIDEPANEL, .{});
+                    }
+                },
+                else => try writer.print(" " ** LEFTSIDEPANEL, .{}),
             }
-            try writer.print("{s}", .{stl.left_border});
+            try writer.print("{f}{s}", .{colors.WHITE, stl.left_border});
             for (0..state.columns) |col| {
                 if (state.array[row][col]) {
                     try writer.print("{f}{s}", .{state.color_array[row][col], stl.mino_block});
@@ -506,9 +591,7 @@ pub const Game = struct{
                         else => unreachable,
                     }
                 },
-                else => { 
-                    try writer.print(" " ** RIGHTSIDEPANEL, .{});
-                },
+                else => try writer.print(" " ** RIGHTSIDEPANEL, .{}),
             }
             try writer.print("{f}{s}\n", .{colors.WHITE, stl.right_border});
         }
