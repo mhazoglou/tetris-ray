@@ -35,9 +35,9 @@ pub fn main() !void {
     var button_map: tih.InputMapping = parsed.value;
 
     var prng: std.Random.DefaultPrng = .init(blk: {
-        const seed: u64 = undefined;
-        // const buf = std.mem.asBytes(&seed);
-        // try std.c.getrandom(buf.ptr, buf.len, 0);
+        var seed: u64 = undefined;
+        const buf: []u8 = @ptrCast(@alignCast(&seed));
+        _ = std.os.linux.getrandom(buf.ptr, buf.len, 0);
         break :blk seed;
     });
     var rand = prng.random();
