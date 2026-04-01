@@ -27,10 +27,10 @@ pub const Game = struct{
     tetramino_num: u64,
     tetramino_seq: [7]u8,
     rand: *std.Random,
-    timeToDrop: u64, // time in ns to move one down inverse of gravity
-    timer: std.time.Timer,
-    time_lock: u64,
-    time_drop: u64,
+    clock: Io.Clock,
+    timeToDrop: i96, // time in ns to move one down inverse of gravity
+    time_lock: i96,
+    time_drop: i96,
     in_lock_delay: bool,
     style: style.Style,
     lines_cleared: u64,
@@ -50,9 +50,9 @@ pub const Game = struct{
             .hold_tetramino = null,
             .tetramino_num = 0,
             .tetramino_seq = buffer,
-            .rand = rand,
+            .rand = rand, 
+            .clock = Io.Clock.cpu_thread,
             .timeToDrop = 1_000_000_000, // 1 sec
-            .timer = std.time.Timer.start() catch unreachable,
             .time_lock = 0,
             .time_drop = 0,
             .in_lock_delay = false,
@@ -77,7 +77,6 @@ pub const Game = struct{
         self.time_lock = 0;
         self.time_drop = 0;
         self.in_lock_delay = false;
-        self.timer.reset();
         self.lines_cleared = 0;
         self.level_sub_one = 0;
         self.score = 0;
@@ -85,10 +84,13 @@ pub const Game = struct{
         self.just_held = false;
     }
 
-    pub fn gameLoop(self: *Game) !void {
+    pub fn gameLoop(self: *Game, io: Io) !void {
 
-        const tty_file = try fs.openFileAbsolute("/dev/tty", .{});
-        defer tty_file.close();
+        // Single-threaded
+        // const io = Io.Threaded.init_single_threaded.io();
+
+        const tty_file = try Io.Dir.openFileAbsolute(io, "/dev/tty", .{});
+        defer tty_file.close(io);
         const tty_fd = tty_file.handle;
 
         const old_settings = try posix.tcgetattr(tty_fd);
@@ -106,9 +108,9 @@ pub const Game = struct{
         var stdin_buffer: [BUFFERSIZE]u8 = undefined;
         var stdout_buffer: [BUFFERSIZE]u8 = undefined;
 
-        var stdin_reader = File.stdin().reader(&stdin_buffer);
+        var stdin_reader = Io.File.stdin().reader(io, &stdin_buffer);
         const reader = &stdin_reader.interface;
-        var stdout_writer = File.stdout().writer(&stdout_buffer);
+        var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
         const writer = &stdout_writer.interface;
 
         try writer.print("{f}", .{self});
@@ -163,7 +165,7 @@ pub const Game = struct{
                             self.active_tetramino.move_down();
                             self.score += 1;
                         } else {
-                            self.lockDelay();
+                            self.lockDelay(io);
                         }
                         try writer.print("{f}", .{self});
                         try writer.flush();
@@ -196,15 +198,18 @@ pub const Game = struct{
                     .Idle => {},
                 }
 
-                if ((self.timer.read() - self.time_drop) > self.timeToDrop) {
+                const drop_elapsed = (
+                    self.clock.now(io).nanoseconds - self.time_drop
+                ) > self.timeToDrop;
+                if (drop_elapsed) {
                     if (!self.downBlocked()) {
                         self.active_tetramino.move_down();
                     } else {
-                        self.lockDelay();
+                        self.lockDelay(io);
                     }
                     try writer.print("{f}", .{self});
                     try writer.flush();
-                    self.time_drop = self.timer.read();
+                    self.time_drop = self.clock.now(io).nanoseconds;
                 }
                 if (!self.running) {
                     self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
@@ -222,12 +227,13 @@ pub const Game = struct{
         }
     }
 
-    fn lockDelay(self: *Game) void {
+    fn lockDelay(self: *Game, io: Io) void {
         if (!self.in_lock_delay) {
             self.in_lock_delay = true;
-            self.time_lock = self.timer.read();
+            self.time_lock = self.clock.now(io).nanoseconds;
         } else {
-            if ((self.timer.read() - self.time_lock) > LOCKTIME) {
+            const lock_elapsed = (self.clock.now(io).nanoseconds - self.time_lock) > LOCKTIME;
+            if (lock_elapsed) {
                 self.lockTetramino();
                 self.running = !self.spawnTetramino();
                 self.in_lock_delay = false;
@@ -290,7 +296,7 @@ pub const Game = struct{
         self.level_sub_one += 1;
         const level_sub_one = @as(f64, @floatFromInt(self.level_sub_one));
         self.timeToDrop = @as(
-            u64, 
+            i96, 
             @intFromFloat(
                 1_000_000_000 * std.math.pow(f64, (0.8 - level_sub_one * 0.007), level_sub_one)
             )
