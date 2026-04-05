@@ -1,38 +1,73 @@
 const std = @import("std");
 const Game = @import("game.zig").Game;
-const tih = @import("termios_input_handler.zig");
+const default_map = @import("game.zig").default_map;
+const c = @import("c.zig").c;
 
 pub fn main() !void {
+    // const screenWidth: c_int = 800;
+    // const screenHeight: c_int = 450;
 
-    var gpa = std.heap.DebugAllocator(.{}).init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    // c.InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    // // De-Initialization
+    // //--------------------------------------------------------------------------------------
+    // defer c.CloseWindow();        // Close window and OpenGL context
+    // //--------------------------------------------------------------------------------------
 
-    var single_threaded = std.Io.Threaded.init_single_threaded;
-    const io = single_threaded.io();
-    const file_name = "button_config.json";
-    const file = try std.Io.Dir.cwd().openFile(
-        io,
-        file_name, 
-        .{ .mode = .read_write },
-    );
-    defer file.close(io);
+    // c.SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
+    // //--------------------------------------------------------------------------------------
 
-    const file_size = (try file.stat(io)).size;
-    var file_buffer = try allocator.alloc(u8, file_size);
-    defer allocator.free(file_buffer);
-    var file_reader = file.reader(io, file_buffer[0..]);
-    var reader = &file_reader.interface;
-    const json_str = try reader.take(file_size);
+    // // Main game loop
+    // while (!c.WindowShouldClose())    // Detect window close button or ESC key
+    // {
+    //     // Update
+    //     //----------------------------------------------------------------------------------
+    //     // TODO: Update your variables here
+    //     //----------------------------------------------------------------------------------
 
-    const parsed = try std.json.parseFromSlice(
-        tih.InputMapping,
-        allocator,
-        json_str,
-        .{},
-    );
-    defer parsed.deinit();
-    var button_map: tih.InputMapping = parsed.value;
+    //     // Draw
+    //     //----------------------------------------------------------------------------------
+    //     c.BeginDrawing();
+
+    //         c.ClearBackground(c.RAYWHITE);
+
+    //         c.DrawText("Congrats! You created your first window!", 190, 200, 20, c.LIGHTGRAY);
+
+    //     c.EndDrawing();
+    //     //----------------------------------------------------------------------------------
+    // }
+
+
+    // var gpa = std.heap.DebugAllocator(.{}).init;
+    // defer _ = gpa.deinit();
+    // const allocator = gpa.allocator();
+
+    // var single_threaded = std.Io.Threaded.init_single_threaded;
+    // const io = single_threaded.io();
+    // const file_name = "button_config.json";
+    // const file = try std.Io.Dir.cwd().openFile(
+    //     io,
+    //     file_name, 
+    //     .{ .mode = .read_write },
+    // );
+    // defer file.close(io);
+
+    // const file_size = (try file.stat(io)).size;
+    // var file_buffer = try allocator.alloc(u8, file_size);
+    // defer allocator.free(file_buffer);
+    // var file_reader = file.reader(io, file_buffer[0..]);
+    // var reader = &file_reader.interface;
+    // const json_str = try reader.take(file_size);
+
+    // const parsed = try std.json.parseFromSlice(
+    //     tih.InputMapping,
+    //     allocator,
+    //     json_str,
+    //     .{},
+    // );
+    // defer parsed.deinit();
+    // var button_map: tih.InputMapping = parsed.value;
+
+    var button_map = default_map;
 
     var prng: std.Random.DefaultPrng = .init(blk: {
         var seed: u64 = undefined;
@@ -43,5 +78,5 @@ pub fn main() !void {
     var rand = prng.random();
     var game = Game.init(&rand, &button_map);
 
-    try game.gameLoop(io);
+    try game.gameLoop();
 }

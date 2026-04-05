@@ -1,74 +1,7 @@
 const std = @import("std");
-const fs = std.fs;
-const File = fs.File;
 const Io = std.Io;
-const posix = std.posix;
 const tih = @import("termios_input_handler.zig");
-const Game = @import("game.zig").Game;
-
-const BUFFERSIZE = 4096;
-
-pub fn main() !void {
-    const tty_file = try fs.openFileAbsolute("/dev/tty", .{});
-    defer tty_file.close();
-    const tty_fd = tty_file.handle;
-
-    const old_settings = try posix.tcgetattr(tty_fd);
-
-    // Set blocking 
-    var new_settings: posix.termios = old_settings;
-    new_settings.lflag.ICANON = false;
-    new_settings.lflag.ECHO = false;
-    new_settings.cc[6] = 1; //VMIN
-    new_settings.cc[5] = 0; //VTIME
-    new_settings.lflag.ECHOE = false;
-
-    _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, new_settings);
-
-    var stdin_buffer: [BUFFERSIZE]u8 = undefined;
-    var stdout_buffer: [BUFFERSIZE]u8 = undefined;
-
-    var stdin_reader = File.stdin().reader(&stdin_buffer);
-    const reader = &stdin_reader.interface;
-    var stdout_writer = File.stdout().writer(&stdout_buffer);
-    const writer = &stdout_writer.interface;
-
-    var menu = Menu.init();
-    try menu.menu_loop(reader, writer);
-    _ = try posix.tcsetattr(tty_fd, posix.TCSA.NOW, old_settings);
-}
-
-// \\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
-// \\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
-// \\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
-
-// \\┃                 ┃    ╭─╮╭─╮╷ ╷╭─╮╭─╴╶┬╮    ┃                 ┃
-// \\┃                 ┃    ├─╯├─┤│ │╰─╮├╴  ││    ┃                 ┃
-// \\┃                 ┃    ╵  ╵ ╵╰─╯╰─╯╰─╴╶┴╯    ┃                 ┃
-
-// \\┃                 ┃╭─╴╭─╮╭┬╮╭─╴  ╭─╮╷ ╷╭─╴╭─╮┃                 ┃
-// \\┃                 ┃│╶╮├─┤│││├╴   │ ││╭╯├╴ ├┬╯┃                 ┃
-// \\┃                 ┃╰─╯╵ ╵╵ ╵╰─╴  ╰─╯╰╯ ╰─╴╵╰╴┃                 ┃
-
-// \\┃                 ┃  ╭─╮╭─╴╶┬╴╶┬╴╷╭╮╷╭─╴╭─╮  ┃                 ┃
-// \\┃                 ┃  ╰─╮├╴  │  │ ││╰┤│╶╮╰─╮  ┃                 ┃
-// \\┃                 ┃  ╰─╯╰─╴ ╵  ╵ ╵╵ ╵╰─╯╰─╯  ┃                 ┃
-
-// ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮
-//  │ ├╴  │ ├┬╯│╰─╮
-//  ╵ ╰─╴ ╵ ╵╰╴╵╰─╯
-
-// ╭─╮╭─╮╷ ╷╭─╮╭─╴╶┬╮
-// ├─╯├─┤│ │╰─╮├╴  ││
-// ╵  ╵ ╵╰─╯╰─╯╰─╴╶┴╯
-
-// ╭─╴╭─╮╭┬╮╭─╴   ╭─╮╷ ╷╭─╴╭─╮
-// │╶╮├─┤│││├╴    │ ││╭╯├╴ ├┬╯
-// ╰─╯╵ ╵╵ ╵╰─╴   ╰─╯╰╯ ╰─╴╵╰╴
-
-// ╭─╮╭─╴╶┬╴╶┬╴╷╭╮╷╭─╴╭─╮
-// ╰─╮├╴  │  │ ││╰┤│╶╮╰─╮
-// ╰─╯╰─╴ ╵  ╵ ╵╵ ╵╰─╯╰─╯
+const rih = @import("raylib_input_handler.zig");
 
 // ╭─╴╭─╮╭╮╷╶┬╴╭─╮╭─╮╷  ╭─╮
 // │  │ ││╰┤ │ ├┬╯│ ││  ╰─╮
@@ -232,24 +165,19 @@ pub const Menu = struct {
         };
     }
 
-    pub fn menu_loop(self: *Menu, reader: *Io.Reader, 
-        writer: *Io.Writer, imap: tih.InputMapping
-    ) !void {
-        try writer.print("{f}", .{self});
-        try writer.flush();
-        const input: tih.UserInput = try tih.InputHandler(reader, imap);
+    pub fn menu_loop(self: *Menu, // reader: *Io.Reader, 
+        // writer: *Io.Writer, 
+        // imap: tih.InputMapping
+    ) void {
+        const input: tih.UserInput = rih.input_handler();
 
         switch (input) {
             .DownButton => self.cycleDown(),
             .UpButton => self.cycleUp(),
-            .PauseButton => {
-                self.selected();
-            },
+            .PauseButton => self.selected(),
             .ExitGameButton => self.state = .ExitGame,
             else => {},
         }
-        try writer.print("{f}", .{self});
-        try writer.flush();
     }
 
     fn cycleUp(self: *Menu) void {

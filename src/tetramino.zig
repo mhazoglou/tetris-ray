@@ -1,5 +1,5 @@
 const State = @import("game.zig").State;
-const colors = @import("colors.zig");
+const c = @import("c.zig").c;
 
 pub const Tetramino = union(enum) {
     I: I_piece,
@@ -12,13 +12,13 @@ pub const Tetramino = union(enum) {
 
     pub fn init(char: u8) Tetramino {
         return switch (char) {
-            'I' => .{ .I = I_piece.init(1, 4, .{ .{ 0, -1}, .{ 0,  1}, .{ 0,  2} }, colors.SKY)},
-            'O' => .{ .O = O_piece.init(0, 4, .{ .{ 0,  1}, .{ 1,  0}, .{ 1,  1} }, colors.YELLOW)},
-            'J' => .{ .J = J_piece.init(1, 4, .{ .{-1, -1}, .{ 0, -1}, .{ 0,  1} }, colors.BLUE)},
-            'L' => .{ .L = L_piece.init(1, 4, .{ .{ 0, -1}, .{ 0,  1}, .{-1,  1} }, colors.PEACH)},
-            'T' => .{ .T = T_piece.init(1, 4, .{ .{ 0, -1}, .{-1,  0}, .{ 0,  1} }, colors.MAUVE)},
-            'S' => .{ .S = S_piece.init(1, 4, .{ .{ 0, -1}, .{-1,  0}, .{-1,  1} }, colors.GREEN)},
-            'Z' => .{ .Z = Z_piece.init(1, 4, .{ .{-1, -1}, .{-1,  0}, .{ 0,  1} }, colors.RED)},
+            'I' => .{ .I = I_piece.init(1, 4, .{ .{ 0, -1}, .{ 0,  1}, .{ 0,  2} }, c.SKYBLUE)},
+            'O' => .{ .O = O_piece.init(0, 4, .{ .{ 0,  1}, .{ 1,  0}, .{ 1,  1} }, c.YELLOW)},
+            'J' => .{ .J = J_piece.init(1, 4, .{ .{-1, -1}, .{ 0, -1}, .{ 0,  1} }, c.BLUE)},
+            'L' => .{ .L = L_piece.init(1, 4, .{ .{ 0, -1}, .{ 0,  1}, .{-1,  1} }, c.ORANGE)},
+            'T' => .{ .T = T_piece.init(1, 4, .{ .{ 0, -1}, .{-1,  0}, .{ 0,  1} }, c.PURPLE)},
+            'S' => .{ .S = S_piece.init(1, 4, .{ .{ 0, -1}, .{-1,  0}, .{-1,  1} }, c.GREEN)},
+            'Z' => .{ .Z = Z_piece.init(1, 4, .{ .{-1, -1}, .{-1,  0}, .{ 0,  1} }, c.RED)},
             else => unreachable, 
         };
     }
@@ -85,7 +85,7 @@ pub const Tetramino = union(enum) {
         };
     }
 
-    pub fn get_color(self: Tetramino) colors.Color {
+    pub fn get_color(self: Tetramino) c.Color {
         return switch (self) {
             .I, .O, .J, .L, .T, .S, .Z => |piece| piece.color,
         };
@@ -185,13 +185,13 @@ pub fn GenericPiece() type {
         col: isize,
         orientation: Orientation,
         block_pos: [3][2]isize,
-        color: colors.Color,
+        color: c.Color,
 
         // block_pos is based on a grid with the pivot of the piece at
         // row index 0 and column index 0 which is always assumed to be 
         // included, the "I" tetramino will be given by:
         // .{ .{0, -1}, .{0, 1}, .{0, 2} }
-        pub fn init(row: isize, col: isize, block_pos: [3][2]isize, color: colors.Color) Self {
+        pub fn init(row: isize, col: isize, block_pos: [3][2]isize, color: c.Color) Self {
             var tmp_blk_pos: [3][2]isize = undefined;
             for (0..tmp_blk_pos.len) |i| {
                 tmp_blk_pos[i][1] = col + block_pos[i][1];
