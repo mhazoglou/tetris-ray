@@ -1,10 +1,6 @@
 const std = @import("std");
-
-const Io = std.Io;
 const Tetramino = @import("tetramino.zig").Tetramino;
 const menu = @import("menu.zig");
-const style = @import("style.zig");
-const colors = @import("colors.zig");
 const c = @import("c.zig").c;
 
 const SQUARE_SIZE = 20;
@@ -38,7 +34,6 @@ pub const Game = struct{
     frame_until_drop: u8,
     drop_speed_counter: u8,
     in_lock_delay: bool,
-    style: style.Style,
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
     score: u64,
@@ -63,11 +58,10 @@ pub const Game = struct{
             .frame_until_drop = 0,
             .drop_speed_counter = 0,
             .in_lock_delay = false,
-            .style = style.base_style,
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
-            .menu = .{ .state = .InGame }, //menu.Menu.init(),
+            .menu = menu.Menu.init(),
             .imap = imap.*,
             .running = true,
             .just_held = false,
@@ -434,13 +428,29 @@ pub const Game = struct{
                 c.DrawText(c.TextFormat("LEVEL:      %06i", self.level_sub_one + 1), x + 100, y - 20, 14, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
-            .PauseMenu => |screen| {
-                c.DrawText("PAUSED", screenWidth/2 - @divFloor(c.MeasureText("PAUSED", 40), 2), screenHeight/2 - 40, 40, c.LIGHTGRAY);
-                c.DrawText(screen.zero_str, screenWidth/2 - @divFloor(c.MeasureText(screen.zero_str, 12), 2), screenHeight / 2 + 60, 12, c.LIGHTGRAY);
-                c.DrawText(screen.first_str, screenWidth/2 - @divFloor(c.MeasureText(screen.first_str, 12), 2), screenHeight / 2 + 80, 12, c.LIGHTGRAY);
-                c.DrawText(screen.second_str, screenWidth/2 - @divFloor(c.MeasureText(screen.second_str, 12), 2), screenHeight / 2 + 100, 12, c.LIGHTGRAY);
-                c.DrawText(screen.third_str, screenWidth/2 - @divFloor(c.MeasureText(screen.third_str, 12), 2), screenHeight / 2 + 120, 12, c.LIGHTGRAY);
-                c.DrawText("▶", screenWidth/2 - 60, screenHeight / 2 + 60 + 20 * @intFromEnum(screen.position), 12, c.LIGHTGRAY);
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |screen| {
+                const banner_font_size = 60;
+                const item_font_size = 12;
+                const draw_top_y = screenHeight / 4;
+                const draw_left_x = screenWidth / 4;
+                const draw_right_x = 3 * screenWidth / 4;
+                const block_size = screenWidth / 6;
+                c.DrawLine(draw_left_x, draw_top_y, draw_right_x, draw_top_y, c.LIGHTGRAY );
+                c.DrawLine(draw_left_x, draw_top_y, draw_left_x, draw_top_y + block_size, c.LIGHTGRAY );
+                c.DrawLine(draw_right_x, draw_top_y, draw_right_x, draw_top_y + block_size, c.LIGHTGRAY );
+                c.DrawLine(draw_left_x, draw_top_y + block_size, draw_left_x + block_size, draw_top_y + block_size, c.LIGHTGRAY);
+                c.DrawLine(draw_right_x, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + block_size, c.LIGHTGRAY);
+                c.DrawLine(draw_left_x + block_size, draw_top_y + block_size, draw_left_x + block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
+                c.DrawLine(draw_right_x - block_size, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
+                c.DrawLine(draw_left_x + block_size, draw_top_y + 2 * block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
+
+                c.DrawText(screen.banner, screenWidth/2 - @divFloor(c.MeasureText(screen.banner, banner_font_size), 2), draw_top_y + screenWidth / 24, banner_font_size, c.LIGHTGRAY);
+                c.DrawText(screen.zero_str, screenWidth/2 - @divFloor(c.MeasureText(screen.zero_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 0, item_font_size, c.LIGHTGRAY);
+                c.DrawText(screen.first_str, screenWidth/2 - @divFloor(c.MeasureText(screen.first_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 20, item_font_size, c.LIGHTGRAY);
+                c.DrawText(screen.second_str, screenWidth/2 - @divFloor(c.MeasureText(screen.second_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 40, item_font_size, c.LIGHTGRAY);
+                c.DrawText(screen.third_str, screenWidth/2 - @divFloor(c.MeasureText(screen.third_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 60, item_font_size, c.LIGHTGRAY);
+                c.DrawText(">", screenWidth/2 - 60, draw_top_y + 2 * screenWidth / 9 + 20 * @intFromEnum(screen.position), item_font_size, c.LIGHTGRAY);
+                c.DrawFPS(0, 0);
             },
             else => {},
         }
@@ -519,234 +529,6 @@ pub const Game = struct{
         }
     }
 
-    pub fn format(self: Game, writer: *Io.Writer) !void {
-        const stl = self.style;
-        const state = self.state;
-        const active_tetramino = self.active_tetramino;
-
-        // upper border
-        try writer.print("\x1B[?25l\x1B[H\x1B[2J{s}", .{stl.upper_left_corner});
-        for (0..LEFTSIDEPANEL) |_| {
-            try writer.print("{s}", .{stl.top_border});
-        }
-        try writer.print("{s}", .{stl.upper_tee});
-        for (0..state.columns) |_| {
-            try writer.print("{0s}" ** 2, .{stl.top_border});
-        }
-        try writer.print("{s}", .{stl.upper_tee});
-        for (0..RIGHTSIDEPANEL) |_| {
-            try writer.print("{s}", .{stl.top_border});
-        }
-        try writer.print("{s}\n", .{stl.upper_right_corner});
-
-        // game field and HUD
-        for (2..state.rows) |row| {
-            try writer.print("{s}", .{stl.left_border});
-            switch (row) {
-                3 => try writer.print("{[val]s: ^[pad]}", .{.val = "Hold:", .pad = LEFTSIDEPANEL}),
-                4 => {
-                    if (self.hold_tetramino) |char|{
-                        switch (char) {
-                            'I' => try writer.print(" " ** LEFTSIDEPANEL, .{}),
-                            'O' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}", .{colors.YELLOW, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
-                            },
-                            'J' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("{0f}{1s}    ", .{colors.BLUE, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'L' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("    {0f}{1s}", .{colors.PEACH, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'T' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("  {0f}{1s}  ", .{colors.MAUVE, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'S' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("  {0f}{1s}{1s}", .{colors.GREEN, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'Z' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}  ", .{colors.RED, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            else => unreachable,
-                        }
-                    } else {
-                        try writer.print(" " ** LEFTSIDEPANEL, .{});
-                    }
-                },
-                5 => {
-                    if (self.hold_tetramino) |char|{
-                        switch (char) {
-                            'I' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 8) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}{1s}{1s}", .{colors.SKY, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 8) / 2), .{});
-                            },
-                            'O' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}", .{colors.YELLOW, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 4) / 2), .{});
-                            },
-                            'J' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}{1s}", .{colors.BLUE, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'L' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}{1s}", .{colors.PEACH, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'T' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}{1s}", .{colors.MAUVE, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'S' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("{0f}{1s}{1s}  ", .{colors.GREEN, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            'Z' => {
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                                try writer.print("  {0f}{1s}{1s}", .{colors.RED, stl.mino_block});
-                                try writer.print(" " ** ((LEFTSIDEPANEL - 6) / 2), .{});
-                            },
-                            else => unreachable,
-                        }
-                    } else{
-                        try writer.print(" " ** LEFTSIDEPANEL, .{});
-                    }
-                },
-                else => try writer.print(" " ** LEFTSIDEPANEL, .{}),
-            }
-            try writer.print("{f}{s}", .{colors.WHITE, stl.left_border});
-            for (0..state.columns) |col| {
-                if (state.array[row][col]) {
-                    try writer.print("{f}{s}", .{state.color_array[row][col], stl.mino_block});
-                } else if (active_tetramino.isOccupied(row, col)) {
-                    try writer.print("{f}{s}", .{active_tetramino.get_color(), stl.mino_block});
-                } else {
-                    try writer.print("{s}", .{stl.empty_block});
-                }
-            }
-            try writer.print("{f}{s}", .{colors.WHITE, stl.right_border});
-            const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
-            switch (row) {
-                3 => try writer.print("{[val]s: ^[pad]}", .{.val = "Score:", .pad = RIGHTSIDEPANEL}),
-                4 => try writer.print("{[val]: ^[pad]}", .{ .val = self.score, .pad = RIGHTSIDEPANEL}),
-                6 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Level:", .pad = RIGHTSIDEPANEL}),
-                7 => try writer.print("{[val]: ^[pad]}", .{ .val = self.level_sub_one + 1, .pad = RIGHTSIDEPANEL}),
-                9 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Lines:", .pad = RIGHTSIDEPANEL}),
-                10 => try writer.print("{[val]: ^[pad]}", .{ .val = self.lines_cleared,.pad = RIGHTSIDEPANEL}),
-                12 => try writer.print("{[val]s: ^[pad]}", .{ .val = "Next:",.pad = RIGHTSIDEPANEL}),
-                13 => {
-                    switch (next) {
-                        'I' => try writer.print(" " ** RIGHTSIDEPANEL, .{}),
-                        'O' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}", .{colors.YELLOW, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
-                        },
-                        'J' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("{0f}{1s}    ", .{colors.BLUE, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'L' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("    {0f}{1s}", .{colors.PEACH, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'T' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("  {0f}{1s}  ", .{colors.MAUVE, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'S' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("  {0f}{1s}{1s}", .{colors.GREEN, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'Z' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}  ", .{colors.RED, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        else => unreachable,
-                    }
-                },
-                14 => {
-                    switch (next) {
-                        'I' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 8) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}{1s}{1s}", .{colors.SKY, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 8) / 2), .{});
-                        },
-                        'O' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}", .{colors.YELLOW, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 4) / 2), .{});
-                        },
-                        'J' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}{1s}", .{colors.BLUE, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'L' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}{1s}", .{colors.PEACH, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'T' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}{1s}", .{colors.MAUVE, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'S' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("{0f}{1s}{1s}  ", .{colors.GREEN, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        'Z' => {
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                            try writer.print("  {0f}{1s}{1s}", .{colors.RED, stl.mino_block});
-                            try writer.print(" " ** ((RIGHTSIDEPANEL - 6) / 2), .{});
-                        },
-                        else => unreachable,
-                    }
-                },
-                else => try writer.print(" " ** RIGHTSIDEPANEL, .{}),
-            }
-            try writer.print("{f}{s}\n", .{colors.WHITE, stl.right_border});
-        }
-
-        // lower border
-        try writer.print("{s}", .{stl.lower_left_corner});
-        for (0..LEFTSIDEPANEL) |_| {
-            try writer.print("{s}", .{stl.bottom_border});
-        }
-        try writer.print("{s}", .{stl.lower_tee});
-        for (0..state.columns) |_| {
-            try writer.print("{s}" ** 2, .{stl.bottom_border, stl.bottom_border});
-        }
-        try writer.print("{s}", .{stl.lower_tee});
-        for (0..RIGHTSIDEPANEL) |_| {
-            try writer.print("{s}", .{stl.bottom_border});
-        }
-        try writer.print("{s}\n", .{stl.lower_right_corner});
-
-    }
 
 };
 
@@ -813,47 +595,6 @@ pub fn Matrix(rows: usize, columns: usize) type {
             return any_overlap;
         }
 
-        pub fn format(self: *Self, writer: *Io.Writer) !void {
-            // Top border row 
-            try writer.print("\u{250F}", .{});
-            for (0..self.columns) |_| {
-                try writer.print("\u{2501}" ** 2, .{});
-            }
-            try writer.print("\u{2530}\n", .{});
-            for (0..self.columns) |_| {
-                try writer.print("\u{2501}", .{});
-            }
-            try writer.print("\u{2513}\n", .{});
-
-            // play field and HUD 
-            for (0..self.rows) |row| {
-                try writer.print("\u{2503}", .{});
-                for (0..self.columns) |col| {
-                    if (self.array[row][col]) {
-                        try writer.print("\u{2588}" ** 2, .{});
-                    } else {
-                        try writer.print("  ", .{});
-                    }
-                }
-                try writer.print("\u{2503}\n", .{});
-
-                for (0..self.columns) |_| {
-                    try writer.print(" ", .{});
-                }
-                try writer.print("\u{2503}\n", .{});
-            }
-
-            try writer.print("\u{2517}", .{});
-            for (0..self.columns) |_| {
-                try writer.print("\u{2501}" ** 2, .{});
-            }
-            try writer.print("\u{253B}\n", .{});
-
-            for (0..self.columns) |_| {
-                try writer.print("\u{2501}", .{});
-            }
-            try writer.print("\u{251B}\n", .{});
-        }
     };
 }
 

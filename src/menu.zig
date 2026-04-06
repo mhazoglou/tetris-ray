@@ -134,25 +134,13 @@ const SettingsScreen = MenuScreen();
 const PauseScreen = MenuScreen();
 const GameOverScreen = MenuScreen();
 
-pub const startScreen = StartScreen.init(Position.two, "Marathon", "Settings", "Quit", "",
-\\┃                 ┃     ╶┬╴╭─╴╶┬╴╭─╮╷╭─╮     ┃                 ┃
-\\┃                 ┃      │ ├╴  │ ├┬╯│╰─╮     ┃                 ┃
-\\┃                 ┃      ╵ ╰─╴ ╵ ╵╰╴╵╰─╯     ┃                 ┃
+pub const startScreen = StartScreen.init(Position.two, "Marathon", "Settings", "Quit", "", "TETRIS"
 );
-pub const settingsScreen = SettingsScreen.init(Position.two, "Theme", "Controls", "Return", "",
-\\┃                 ┃  ╭─╮╭─╴╶┬╴╶┬╴╷╭╮╷╭─╴╭─╮  ┃                 ┃
-\\┃                 ┃  ╰─╮├╴  │  │ ││╰┤│╶╮╰─╮  ┃                 ┃
-\\┃                 ┃  ╰─╯╰─╴ ╵  ╵ ╵╵ ╵╰─╯╰─╯  ┃                 ┃
+pub const settingsScreen = SettingsScreen.init(Position.two, "Theme", "Controls", "Return", "", "SETTINGS"
 );
-pub const pauseScreen = PauseScreen.init(Position.three, "Continue", "Settings", "Return", "Quit",
-\\┃                 ┃    ╭─╮╭─╮╷ ╷╭─╮╭─╴╶┬╮    ┃                 ┃
-\\┃                 ┃    ├─╯├─┤│ │╰─╮├╴  ││    ┃                 ┃
-\\┃                 ┃    ╵  ╵ ╵╰─╯╰─╯╰─╴╶┴╯    ┃                 ┃
+pub const pauseScreen = PauseScreen.init(Position.three, "Continue", "Settings", "Return", "Quit", "PAUSED"
 );
-pub const gameOverScreen = GameOverScreen.init(Position.two, "Retry", "Return", "Quit", "", 
-\\┃                 ┃╭─╴╭─╮╭┬╮╭─╴  ╭─╮╷ ╷╭─╴╭─╮┃                 ┃
-\\┃                 ┃│╶╮├─┤│││├╴   │ ││╭╯├╴ ├┬╯┃                 ┃
-\\┃                 ┃╰─╯╵ ╵╵ ╵╰─╴  ╰─╯╰╯ ╰─╴╵╰╴┃                 ┃
+pub const gameOverScreen = GameOverScreen.init(Position.two, "Retry", "Return", "Quit", "", "GAME OVER"
 );
 
 pub const Menu = struct {
