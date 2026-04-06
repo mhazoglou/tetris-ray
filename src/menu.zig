@@ -1,7 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
-const tih = @import("termios_input_handler.zig");
-const rih = @import("raylib_input_handler.zig");
+const c = @import("c.zig").c;
 
 // ╭─╴╭─╮╭╮╷╶┬╴╭─╮╭─╮╷  ╭─╮
 // │  │ ││╰┤ │ ├┬╯│ ││  ╰─╮
@@ -53,19 +52,19 @@ pub fn MenuScreen() type {
 
         position: Position,
         max_position: Position,
-        zero_str: []const u8, 
-        first_str: []const u8, 
-        second_str: []const u8, 
-        third_str: []const u8,
-        banner: []const u8,
+        zero_str: [:0]const u8, 
+        first_str: [:0]const u8, 
+        second_str: [:0]const u8, 
+        third_str: [:0]const u8,
+        banner: [:0]const u8,
 
         pub fn init(
             max_position: Position,
-            zero_str: []const u8, 
-            first_str: []const u8, 
-            second_str: []const u8, 
-            third_str: []const u8,
-            banner: []const u8,
+            zero_str: [:0]const u8, 
+            first_str: [:0]const u8, 
+            second_str: [:0]const u8, 
+            third_str: [:0]const u8,
+            banner: [:0]const u8,
         ) Self {
             return .{
                 .position = .zero,
@@ -169,18 +168,21 @@ pub const Menu = struct {
         // writer: *Io.Writer, 
         // imap: tih.InputMapping
     ) void {
-        const input: tih.UserInput = rih.input_handler();
-
-        switch (input) {
-            .DownButton => self.cycleDown(),
-            .UpButton => self.cycleUp(),
-            .PauseButton => self.selected(),
-            .ExitGameButton => self.state = .ExitGame,
-            else => {},
+        if (c.IsKeyPressed(c.KEY_DOWN)) {
+            self.cycleDown();
+        }
+        if (c.IsKeyPressed(c.KEY_UP)) {
+            self.cycleUp();
+        }
+        if (c.IsKeyPressed(c.KEY_ENTER)) {
+            self.selected();
+        }
+        if (c.IsKeyPressed(c.KEY_ESCAPE)) {
+            self.state = .ExitGame;
         }
     }
 
-    fn cycleUp(self: *Menu) void {
+    pub fn cycleUp(self: *Menu) void {
         switch (self.state) {
             .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |*pos| {
                 pos.cycleUp();
@@ -189,7 +191,7 @@ pub const Menu = struct {
         }
     }
 
-    fn cycleDown(self: *Menu) void {
+    pub fn cycleDown(self: *Menu) void {
         switch (self.state) {
             .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |*pos| {
                 pos.cycleDown();
@@ -198,7 +200,7 @@ pub const Menu = struct {
         }
     }
 
-    fn selected(self: *Menu) void {
+    pub fn selected(self: *Menu) void {
         switch (self.state) {
             .StartMenu => |screen| {
                 switch (screen.position) {

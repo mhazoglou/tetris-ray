@@ -1,4 +1,5 @@
 const std = @import("std");
+
 const Io = std.Io;
 const Tetramino = @import("tetramino.zig").Tetramino;
 const menu = @import("menu.zig");
@@ -94,16 +95,16 @@ pub const Game = struct{
 
     pub fn gameLoop(self: *Game) !void {
 
-        loop: switch (self.menu.state) {
-            .ExitGame => {
-                c.CloseWindow();
-            },
-            .InGame => {
-                c.InitWindow(screenWidth, screenHeight, "classic game: tetris");
-                c.SetTargetFPS(FRAMERATE);
-                while (!c.WindowShouldClose())    // Detect window close button or ESC key
-                {
+        c.InitWindow(screenWidth, screenHeight, "classic game: tetris");
+        c.SetTargetFPS(FRAMERATE);
+        while (!c.WindowShouldClose()) {   // Detect window close button or ESC key
+        
 
+            loop: switch (self.menu.state) {
+                .ExitGame => {
+                    break;// c.CloseWindow();
+                },
+                .InGame => {
                     if (c.IsKeyPressed(self.imap.left) and !self.leftBlocked()) {
                         self.active_tetramino.move_left();
                     }
@@ -199,16 +200,17 @@ pub const Game = struct{
                         self.reset();
                     }
                     self.drawGame();
-                }
 
-                c.CloseWindow();        // Close window and OpenGL context
-                //continue :loop self.menu.state;
-            },
-            else => {
-                self.menu.menu_loop(); //reader, writer, self.imap.*);
-                continue :loop self.menu.state;
-            },
+                    continue :loop self.menu.state;
+                },
+                else => {
+                    self.menu.menu_loop();
+                    self.drawGame();
+                    continue :loop self.menu.state;
+                },
+            }
         }
+        c.CloseWindow();        // Close window and OpenGL context
     }
 
     fn lockDelay(self: *Game) void {
@@ -416,87 +418,105 @@ pub const Game = struct{
 
                 const controler: c_int = x;
                 const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
-                switch (next) {
-                    'I' => {
-                        for (0..4) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.SKYBLUE);
-                            x += SQUARE_SIZE;
-                        }
-                    },
-                    'O' => {
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                        x += SQUARE_SIZE;
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                        y += SQUARE_SIZE;
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                        x -= SQUARE_SIZE;
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                    },
-                    'J' => {
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.BLUE);
-                        y += SQUARE_SIZE;
-                        for (0..3) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.BLUE);
-                            x += SQUARE_SIZE;
-                        }
-                    },
-                    'L' => {
-                        x += 2 * SQUARE_SIZE;
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.ORANGE);
-                        y += SQUARE_SIZE;
-                        for (0..3) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.ORANGE);
-                            x -= SQUARE_SIZE;
-                        }
-                    },
-                    'T' => {
-                        x += SQUARE_SIZE;
-                        c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.PURPLE);
-                        y += SQUARE_SIZE;
-                        x += SQUARE_SIZE;
-                        for (0..3) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.PURPLE);
-                            x -= SQUARE_SIZE;
-                        }
-                    },
-                    'S' => {
-                        x += SQUARE_SIZE;
-                        for (0..2) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.GREEN);
-                            x += SQUARE_SIZE;
-                        }
-                        y += SQUARE_SIZE;
-                        x -= 2 * SQUARE_SIZE;
-                        for (0..2) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.GREEN);
-                            x -= SQUARE_SIZE;
-                        }
-                    },
-                    'Z' => {
-                        for (0..2) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.RED);
-                            x += SQUARE_SIZE;
-                        }
-                        y += SQUARE_SIZE;
-                        for (0..2) |_| {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, c.RED);
-                            x -= SQUARE_SIZE;
-                        }
-                    },
-                    else => unreachable,
+                drawPiece(next, &x, &y);
+
+                x = 200;
+                y = 45;
+                if (self.hold_tetramino) |hold| {
+                    drawPiece(hold, &x, &y);
                 }
 
                 x = controler;
                 y += SQUARE_SIZE;
                 c.DrawText("NEXT:", x, y - 60, 14, c.LIGHTGRAY);
-                c.DrawText(c.TextFormat("LINES:      %04i", self.lines_cleared), x + 100, y - 40, 14, c.LIGHTGRAY);
-                c.DrawText(c.TextFormat("SCORE:      %04i", self.score), x + 100, y - 60, 14, c.LIGHTGRAY);
-                c.DrawText(c.TextFormat("LEVEL:      %04i", self.level_sub_one + 1), x + 100, y - 20, 14, c.LIGHTGRAY);
+                c.DrawText(c.TextFormat("LINES:      %06i", self.lines_cleared), x + 100, y - 40, 14, c.LIGHTGRAY);
+                c.DrawText(c.TextFormat("SCORE:      %06i", self.score), x + 100, y - 60, 14, c.LIGHTGRAY);
+                c.DrawText(c.TextFormat("LEVEL:      %06i", self.level_sub_one + 1), x + 100, y - 20, 14, c.LIGHTGRAY);
+                c.DrawFPS(0, 0);
             },
-            .PauseMenu => c.DrawText("GAME PAUSED", screenWidth/2 - @divFloor(c.MeasureText("GAME PAUSED", 40), 2), screenHeight/2 - 40, 40, c.GRAY),
+            .PauseMenu => |screen| {
+                c.DrawText("PAUSED", screenWidth/2 - @divFloor(c.MeasureText("PAUSED", 40), 2), screenHeight/2 - 40, 40, c.LIGHTGRAY);
+                c.DrawText(screen.zero_str, screenWidth/2 - @divFloor(c.MeasureText(screen.zero_str, 12), 2), screenHeight / 2 + 60, 12, c.LIGHTGRAY);
+                c.DrawText(screen.first_str, screenWidth/2 - @divFloor(c.MeasureText(screen.first_str, 12), 2), screenHeight / 2 + 80, 12, c.LIGHTGRAY);
+                c.DrawText(screen.second_str, screenWidth/2 - @divFloor(c.MeasureText(screen.second_str, 12), 2), screenHeight / 2 + 100, 12, c.LIGHTGRAY);
+                c.DrawText(screen.third_str, screenWidth/2 - @divFloor(c.MeasureText(screen.third_str, 12), 2), screenHeight / 2 + 120, 12, c.LIGHTGRAY);
+                c.DrawText("▶", screenWidth/2 - 60, screenHeight / 2 + 60 + 20 * @intFromEnum(screen.position), 12, c.LIGHTGRAY);
+            },
             else => {},
         }
         c.EndDrawing();
+    }
+
+    fn drawPiece(piece: u8, x: *c_int, y: *c_int) void {
+        switch (piece) {
+            'I' => {
+                for (0..4) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.SKYBLUE);
+                    x.* += SQUARE_SIZE;
+                }
+            },
+            'O' => {
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
+                x.* += SQUARE_SIZE;
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
+                y.* += SQUARE_SIZE;
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
+                x.* -= SQUARE_SIZE;
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
+            },
+            'J' => {
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.BLUE);
+                y.* += SQUARE_SIZE;
+                for (0..3) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.BLUE);
+                    x.* += SQUARE_SIZE;
+                }
+            },
+            'L' => {
+                x.* += 2 * SQUARE_SIZE;
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.ORANGE);
+                y.* += SQUARE_SIZE;
+                for (0..3) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.ORANGE);
+                    x.* -= SQUARE_SIZE;
+                }
+            },
+            'T' => {
+                x.* += SQUARE_SIZE;
+                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.PURPLE);
+                y.* += SQUARE_SIZE;
+                x.* += SQUARE_SIZE;
+                for (0..3) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.PURPLE);
+                    x.* -= SQUARE_SIZE;
+                }
+            },
+            'S' => {
+                x.* += SQUARE_SIZE;
+                for (0..2) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.GREEN);
+                    x.* += SQUARE_SIZE;
+                }
+                y.* += SQUARE_SIZE;
+                x.* -= 2 * SQUARE_SIZE;
+                for (0..2) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.GREEN);
+                    x.* -= SQUARE_SIZE;
+                }
+            },
+            'Z' => {
+                for (0..2) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.RED);
+                    x.* += SQUARE_SIZE;
+                }
+                y.* += SQUARE_SIZE;
+                for (0..2) |_| {
+                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.RED);
+                    x.* -= SQUARE_SIZE;
+                }
+            },
+            else => unreachable,
+        }
     }
 
     pub fn format(self: Game, writer: *Io.Writer) !void {
