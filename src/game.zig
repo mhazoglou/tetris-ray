@@ -3,16 +3,13 @@ const Tetramino = @import("tetramino.zig").Tetramino;
 const menu = @import("menu.zig");
 const c = @import("c.zig").c;
 
-const SQUARE_SIZE = 20;
 const screenWidth: c_int = 800;
 const screenHeight: c_int = 450;
+const SQUARE_SIZE = 20;
 const FRAMERATE = 60;
 
 const MAXROWS = 22;
 const MAXCOLS = 10;
-const LEFTSIDEPANEL = 20; // character width
-const RIGHTSIDEPANEL = 20; // character width
-const BUFFERSIZE = 4096;
 const LOCKRATE = 30; // every 30 frames for 500 ms
 const DAS = 10; // 10 delayed auto shift
 const ARR = 2; // 2 frames auto repeat rate
@@ -123,7 +120,7 @@ pub const Game = struct{
                     if (c.IsKeyReleased(self.imap.right)) {
                         self.das_count = 0;
                     }
-                    if (c.IsKeyDown(self.imap.soft_drop)) {
+                    if (c.IsKeyDown(self.imap.@"soft drop")) {
                         if (!self.downBlocked() and ((self.drop_speed_counter % 3) == 0)) {
                             self.active_tetramino.move_down();
                             self.score += 1;
@@ -131,10 +128,10 @@ pub const Game = struct{
                             self.lockDelay();
                         }
                     }
-                    if (c.IsKeyReleased(self.imap.soft_drop)) {
+                    if (c.IsKeyReleased(self.imap.@"soft drop")) {
                         self.drop_speed_counter = 0;
                     }
-                    if (c.IsKeyPressed(self.imap.hard_drop)) {
+                    if (c.IsKeyPressed(self.imap.@"hard drop")) {
                         var cells: u64 = 0; 
                         while(!self.downBlocked()) {
                             self.active_tetramino.move_down();
@@ -148,14 +145,14 @@ pub const Game = struct{
                     if (c.IsKeyPressed(self.imap.hold)) {
                         self.holdPiece();
                     }
-                    if (c.IsKeyPressed(self.imap.rotCW)) {
+                    if (c.IsKeyPressed(self.imap.@"rotate CW")) {
                         const opt_wall_kick = self.superRotationSystem(.CW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CW(wall_kick);
                             self.in_lock_delay = false;
                         }
                     }
-                    if (c.IsKeyPressed(self.imap.rotCCW)) {
+                    if (c.IsKeyPressed(self.imap.@"rotate CCW")) {
                         const opt_wall_kick = self.superRotationSystem(.CCW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CCW(wall_kick);
@@ -383,8 +380,6 @@ pub const Game = struct{
                 var x: c_int = screenWidth/2 - (MAXCOLS * SQUARE_SIZE/2);
                 var y: c_int = screenHeight/2 - ((MAXROWS - 2) * SQUARE_SIZE/2);
 
-                // y -= 50;     // NOTE: Harcoded position!
-
                 const controller: c_int = x;
 
                 for (2..MAXROWS) |row| {
@@ -416,6 +411,7 @@ pub const Game = struct{
 
                 x = 200;
                 y = 45;
+                c.DrawText("HOLD:", x, y - 40 , 14, c.LIGHTGRAY);
                 if (self.hold_tetramino) |hold| {
                     drawPiece(hold, &x, &y);
                 }
@@ -445,12 +441,31 @@ pub const Game = struct{
                 c.DrawLine(draw_left_x + block_size, draw_top_y + 2 * block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
 
                 c.DrawText(screen.banner, screenWidth/2 - @divFloor(c.MeasureText(screen.banner, banner_font_size), 2), draw_top_y + screenWidth / 24, banner_font_size, c.LIGHTGRAY);
-                c.DrawText(screen.zero_str, screenWidth/2 - @divFloor(c.MeasureText(screen.zero_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 0, item_font_size, c.LIGHTGRAY);
-                c.DrawText(screen.first_str, screenWidth/2 - @divFloor(c.MeasureText(screen.first_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 20, item_font_size, c.LIGHTGRAY);
-                c.DrawText(screen.second_str, screenWidth/2 - @divFloor(c.MeasureText(screen.second_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 40, item_font_size, c.LIGHTGRAY);
-                c.DrawText(screen.third_str, screenWidth/2 - @divFloor(c.MeasureText(screen.third_str, item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 60, item_font_size, c.LIGHTGRAY);
-                c.DrawText(">", screenWidth/2 - 60, draw_top_y + 2 * screenWidth / 9 + 20 * @intFromEnum(screen.position), item_font_size, c.LIGHTGRAY);
+                inline for (0..4) |i| {
+                    c.DrawText(screen.arr_str[i][0], screenWidth/2 - @divFloor(c.MeasureText(screen.arr_str[i][0], item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 20 * @as(c_int, @intCast(i)), item_font_size, c.LIGHTGRAY);
+                }
+                c.DrawText(">", screenWidth/2 - 60, draw_top_y + 2 * screenWidth / 9 + 20 * @intFromEnum(screen.position_y), item_font_size, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
+            },
+            .ControlsMenu => |screen| {
+                const banner_font_size = 60;
+                const item_font_size = 12;
+                c.DrawText(screen.banner, screenWidth / 2 - @divFloor(c.MeasureText(screen.banner, banner_font_size), 2), 100, banner_font_size, c.LIGHTGRAY);
+                // const ti_imap = @typeInfo(self.imap);
+                for (0..4) |row| {
+                    for (0..2) |col| {
+                        const field = screen.arr_str[row][col];
+                        const end = field.len;
+                        c.DrawText(field, (2 * @as(c_int, @intCast(col)) + 1) * @divFloor(screenWidth, 4), 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
+                        const fields = @typeInfo(InputMapping).@"struct".fields;
+                        inline for (fields) |fld| {
+                            if (std.mem.eql(u8, fld.name, field[0..end - 2])) {
+                                c.DrawText(GetKeyText(@field(self.imap, fld.name)), (2 * @as(c_int, @intCast(col)) + 1) * @divFloor(screenWidth, 4) + 80, 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
+                            }
+                        }
+                    }
+                }
+                c.DrawText(">", (2 * @as(c_int, @intFromEnum(screen.position_x)) + 1) * @divFloor(screenWidth, 4) - 20, 200 + 20 * @as(c_int, @intFromEnum(screen.position_y)), item_font_size, c.LIGHTGRAY);
             },
             else => {},
         }
@@ -576,7 +591,7 @@ pub fn Matrix(rows: usize, columns: usize) type {
                 r -= 1;
             }
             self.array[0] = .{false} ** MAXCOLS;
-            self.color_array[0] = .{c.WHITE} ** MAXCOLS;
+            self.color_array[0] = .{c.BLACK} ** MAXCOLS;
         }
 
         pub fn checkOverlap(self: *const Self, block_pos: [4][2]isize) bool {
@@ -601,23 +616,37 @@ pub fn Matrix(rows: usize, columns: usize) type {
 pub const InputMapping = struct {
     left: c_int,
     right: c_int,
-    soft_drop: c_int,
-    hard_drop: c_int,
+    @"soft drop": c_int,
+    @"hard drop": c_int,
     hold: c_int,
-    rotCW: c_int,
-    rotCCW: c_int,
+    @"rotate CW": c_int,
+    @"rotate CCW": c_int,
     pause: c_int,
     exit: c_int,
+
+    fn rebind(self: *InputMapping, field: []u8) void {
+        const new_key = c.GetKeyPressed();
+        const fields = @typeInfo(InputMapping).@"struct".fields;
+        inline for (fields) |fld| {
+            if (std.mem.eql(u8, fld.name, field)) {
+                @field(self, fld.name) = new_key;
+            }
+        }
+    }
+
+    fn reset_default(self: *InputMapping) void {
+        self.* = default_map;
+    }
 };
 
 pub const default_map: InputMapping = .{
     .left = c.KEY_LEFT,
     .right = c.KEY_RIGHT,
-    .soft_drop = c.KEY_DOWN,
-    .hard_drop = c.KEY_SPACE,
+    .@"soft drop" = c.KEY_DOWN,
+    .@"hard drop" = c.KEY_SPACE,
     .hold = c.KEY_LEFT_SHIFT,
-    .rotCW = c.KEY_UP,
-    .rotCCW = c.KEY_LEFT_CONTROL,
+    .@"rotate CW" = c.KEY_UP,
+    .@"rotate CCW" = c.KEY_LEFT_CONTROL,
     .pause = c.KEY_ENTER,
     .exit = c.KEY_ESCAPE,
 };
@@ -626,3 +655,115 @@ const Rotation = enum {
     CW,
     CCW,
 };
+
+
+pub fn GetKeyText(key: c_int) [:0]const u8 {
+    return switch (key) {
+        c.KEY_APOSTROPHE      => "'",          // Key: '
+        c.KEY_COMMA           => ",",          // Key: ,
+        c.KEY_MINUS           => "-",          // Key: -
+        c.KEY_PERIOD          => ".",          // Key: .
+        c.KEY_SLASH           => "/",          // Key: /
+        c.KEY_ZERO            => "0",          // Key: 0
+        c.KEY_ONE             => "1",          // Key: 1
+        c.KEY_TWO             => "2",          // Key: 2
+        c.KEY_THREE           => "3",          // Key: 3
+        c.KEY_FOUR            => "4",          // Key: 4
+        c.KEY_FIVE            => "5",          // Key: 5
+        c.KEY_SIX             => "6",          // Key: 6
+        c.KEY_SEVEN           => "7",          // Key: 7
+        c.KEY_EIGHT           => "8",          // Key: 8
+        c.KEY_NINE            => "9",          // Key: 9
+        c.KEY_SEMICOLON       => ";",          // Key: ;
+        c.KEY_EQUAL           => "=",          // Key: =
+        c.KEY_A               => "A",          // Key: A | a
+        c.KEY_B               => "B",          // Key: B | b
+        c.KEY_C               => "C",          // Key: C | c
+        c.KEY_D               => "D",          // Key: D | d
+        c.KEY_E               => "E",          // Key: E | e
+        c.KEY_F               => "F",          // Key: F | f
+        c.KEY_G               => "G",          // Key: G | g
+        c.KEY_H               => "H",          // Key: H | h
+        c.KEY_I               => "I",          // Key: I | i
+        c.KEY_J               => "J",          // Key: J | j
+        c.KEY_K               => "K",          // Key: K | k
+        c.KEY_L               => "L",          // Key: L | l
+        c.KEY_M               => "M",          // Key: M | m
+        c.KEY_N               => "N",          // Key: N | n
+        c.KEY_O               => "O",          // Key: O | o
+        c.KEY_P               => "P",          // Key: P | p
+        c.KEY_Q               => "Q",          // Key: Q | q
+        c.KEY_R               => "R",          // Key: R | r
+        c.KEY_S               => "S",          // Key: S | s
+        c.KEY_T               => "T",          // Key: T | t
+        c.KEY_U               => "U",          // Key: U | u
+        c.KEY_V               => "V",          // Key: V | v
+        c.KEY_W               => "W",          // Key: W | w
+        c.KEY_X               => "X",          // Key: X | x
+        c.KEY_Y               => "Y",          // Key: Y | y
+        c.KEY_Z               => "Z",          // Key: Z | z
+        c.KEY_LEFT_BRACKET    => "[",          // Key: [
+        c.KEY_BACKSLASH       => "\\",         // Key: '\'
+        c.KEY_RIGHT_BRACKET   => "]",          // Key: ]
+        c.KEY_GRAVE           => "`",          // Key: `
+        c.KEY_SPACE           => "SPACE",      // Key: Space
+        c.KEY_ESCAPE          => "ESC",        // Key: Esc
+        c.KEY_ENTER           => "ENTER",      // Key: Enter
+        c.KEY_TAB             => "TAB",        // Key: Tab
+        c.KEY_BACKSPACE       => "BACK",       // Key: Backspace
+        c.KEY_INSERT          => "INS",        // Key: Ins
+        c.KEY_DELETE          => "DEL",        // Key: Del
+        c.KEY_RIGHT           => "RIGHT",      // Key: Cursor right
+        c.KEY_LEFT            => "LEFT",       // Key: Cursor left
+        c.KEY_DOWN            => "DOWN",       // Key: Cursor down
+        c.KEY_UP              => "UP",         // Key: Cursor up
+        c.KEY_PAGE_UP         => "PGUP",       // Key: Page up
+        c.KEY_PAGE_DOWN       => "PGDOWN",     // Key: Page down
+        c.KEY_HOME            => "HOME",       // Key: Home
+        c.KEY_END             => "END",        // Key: End
+        c.KEY_CAPS_LOCK       => "CAPS",       // Key: Caps lock
+        c.KEY_SCROLL_LOCK     => "LOCK",       // Key: Scroll down
+        c.KEY_NUM_LOCK        => "NUMLOCK",    // Key: Num lock
+        c.KEY_PRINT_SCREEN    => "PRINTSCR",   // Key: Print screen
+        c.KEY_PAUSE           => "PAUSE",      // Key: Pause
+        c.KEY_F1              => "F1",         // Key: F1
+        c.KEY_F2              => "F2",         // Key: F2
+        c.KEY_F3              => "F3",         // Key: F3
+        c.KEY_F4              => "F4",         // Key: F4
+        c.KEY_F5              => "F5",         // Key: F5
+        c.KEY_F6              => "F6",         // Key: F6
+        c.KEY_F7              => "F7",         // Key: F7
+        c.KEY_F8              => "F8",         // Key: F8
+        c.KEY_F9              => "F9",         // Key: F9
+        c.KEY_F10             => "F10",        // Key: F10
+        c.KEY_F11             => "F11",        // Key: F11
+        c.KEY_F12             => "F12",        // Key: F12
+        c.KEY_LEFT_SHIFT      => "LSHIFT",     // Key: Shift left
+        c.KEY_LEFT_CONTROL    => "LCTRL",      // Key: Control left
+        c.KEY_LEFT_ALT        => "LALT",       // Key: Alt left
+        c.KEY_LEFT_SUPER      => "WIN",        // Key: Super left
+        c.KEY_RIGHT_SHIFT     => "RSHIFT",     // Key: Shift right
+        c.KEY_RIGHT_CONTROL   => "RCTRL",      // Key: Control right
+        c.KEY_RIGHT_ALT       => "ALTGR",      // Key: Alt right
+        c.KEY_RIGHT_SUPER     => "RSUPER",     // Key: Super right
+        c.KEY_KB_MENU         => "KBMENU",     // Key: KB menu
+        c.KEY_KP_0            => "KP0",        // Key: Keypad 0
+        c.KEY_KP_1            => "KP1",        // Key: Keypad 1
+        c.KEY_KP_2            => "KP2",        // Key: Keypad 2
+        c.KEY_KP_3            => "KP3",        // Key: Keypad 3
+        c.KEY_KP_4            => "KP4",        // Key: Keypad 4
+        c.KEY_KP_5            => "KP5",        // Key: Keypad 5
+        c.KEY_KP_6            => "KP6",        // Key: Keypad 6
+        c.KEY_KP_7            => "KP7",        // Key: Keypad 7
+        c.KEY_KP_8            => "KP8",        // Key: Keypad 8
+        c.KEY_KP_9            => "KP9",        // Key: Keypad 9
+        c.KEY_KP_DECIMAL      => "KPDEC",      // Key: Keypad .
+        c.KEY_KP_DIVIDE       => "KPDIV",      // Key: Keypad /
+        c.KEY_KP_MULTIPLY     => "KPMUL",      // Key: Keypad *
+        c.KEY_KP_SUBTRACT     => "KPSUB",      // Key: Keypad -
+        c.KEY_KP_ADD          => "KPADD",      // Key: Keypad +
+        c.KEY_KP_ENTER        => "KPENTER",    // Key: Keypad Enter
+        c.KEY_KP_EQUAL        => "KPEQU",      // Key: Keypad =
+        else => "",
+    };
+}
