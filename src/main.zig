@@ -34,7 +34,7 @@ pub fn main() !void {
     // defer parsed.deinit();
     // var button_map: tih.InputMapping = parsed.value;
 
-    var button_map = default_map;
+    // var button_map = default_map;
 
     var prng: std.Random.DefaultPrng = .init(blk: {
         var seed: u64 = undefined;
@@ -43,7 +43,7 @@ pub fn main() !void {
         break :blk seed;
     });
     var rand = prng.random();
-    var game = Game.init(&rand, &button_map);
+    var game = Game.init(&rand); //, &button_map);
 
     try game.gameLoop();
 }

@@ -10,9 +10,10 @@ const FRAMERATE = 60;
 
 const MAXROWS = 22;
 const MAXCOLS = 10;
-const LOCKRATE = 30; // every 30 frames for 500 ms
-const DAS = 10; // 10 delayed auto shift
-const ARR = 2; // 2 frames auto repeat rate
+const LOCKDELAY = 0.5; // 0.5 s or 500 ms
+const DAS = 10.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 10 frames of delay auto shift
+const DASART = 2.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 2 frames auto repeat rate
+const DART = 3.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 3 frames drop auto repeat rate
 const LINESFORLEVELUP = 10;
 
 pub const State = Matrix(MAXROWS, MAXCOLS);
@@ -25,11 +26,11 @@ pub const Game = struct{
     tetramino_num: u64,
     tetramino_seq: [7]u8,
     rand: *std.Random,
-    das_count: u8,
-    frames_for_drop: u8, // the number of frames before the tetramino drops by one
-    frame_until_lock: u8,
-    frame_until_drop: u8,
-    drop_speed_counter: u8,
+    time_das: c_longdouble,
+    time_ar: c_longdouble,
+    time_to_drop: c_longdouble, // the time in second before the tetramino drops by one square of the grid
+    time_lock: c_longdouble,
+    time_drop: c_longdouble,
     in_lock_delay: bool,
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
@@ -39,7 +40,7 @@ pub const Game = struct{
     running: bool,
     just_held: bool,
     
-    pub fn init(rand: *std.Random, imap: *InputMapping) Game {
+    pub fn init(rand: *std.Random) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
         rand.shuffle(u8, &buffer);
         return .{
@@ -49,17 +50,27 @@ pub const Game = struct{
             .tetramino_num = 0,
             .tetramino_seq = buffer,
             .rand = rand, 
-            .das_count = 0, // frames until delayed auto shift 
-            .frames_for_drop = FRAMERATE, // 1 sec
-            .frame_until_lock = 0,
-            .frame_until_drop = 0,
-            .drop_speed_counter = 0,
+            .time_das = 0.0,
+            .time_ar = 0.0,
+            .time_to_drop = 1.0, // 1 sec
+            .time_lock = 0.0,
+            .time_drop = 0.0,
             .in_lock_delay = false,
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
             .menu = menu.Menu.init(),
-            .imap = imap.*,
+            .imap = .{
+                .left = c.KEY_LEFT,
+                .right = c.KEY_RIGHT,
+                .@"soft drop" = c.KEY_DOWN,
+                .@"hard drop" = c.KEY_SPACE,
+                .hold = c.KEY_LEFT_SHIFT,
+                .@"rotate CW" = c.KEY_UP,
+                .@"rotate CCW" = c.KEY_LEFT_CONTROL,
+                .pause = c.KEY_ENTER,
+                .exit = c.KEY_ESCAPE,
+            },
             .running = true,
             .just_held = false,
         };
@@ -68,14 +79,14 @@ pub const Game = struct{
     pub fn reset(self: *Game) void {
         self.state = State.init();
         self.tetramino_num = 0;
-        self.das_count = 0;
         self.shufflePieces();
         self.active_tetramino = Tetramino.init(self.tetramino_seq[0]);
         self.hold_tetramino = null;
-        self.frames_for_drop = FRAMERATE;
-        self.frame_until_lock = 0;
-        self.frame_until_drop = 0;
-        self.drop_speed_counter = 0;
+        self.time_das = 0.0;
+        self.time_ar = 0.0;
+        self.time_to_drop = 1.0;
+        self.time_lock = 0.0;
+        self.time_drop = 0.0;
         self.in_lock_delay = false;
         self.lines_cleared = 0;
         self.level_sub_one = 0;
@@ -89,7 +100,6 @@ pub const Game = struct{
         c.InitWindow(screenWidth, screenHeight, "classic game: tetris");
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) {   // Detect window close button or ESC key
-        
 
             loop: switch (self.menu.state) {
                 .ExitGame => {
@@ -98,39 +108,52 @@ pub const Game = struct{
                 .InGame => {
                     if (c.IsKeyPressed(self.imap.left) and !self.leftBlocked()) {
                         self.active_tetramino.move_left();
+                        self.time_das = c.GetTime();
+                        self.time_ar = self.time_das;
                     }
                     if (c.IsKeyPressed(self.imap.right) and !self.rightBlocked()) {
                         self.active_tetramino.move_right();
+                        self.time_das = c.GetTime();
+                        self.time_ar = self.time_das;
                     }
                     if (c.IsKeyDown(self.imap.left) and !self.leftBlocked()) {
-                        self.das_count += 1;
-                        if (self.das_count > DAS and (((self.das_count - DAS) % ARR) == 0)) {
+                        const now = c.GetTime();
+                        const das_condition = (
+                            (now - self.time_das) >= DAS) and 
+                            ((now - self.time_ar) >= DASART);
+                        if (das_condition) {
                             self.active_tetramino.move_left();
+                            self.time_ar = c.GetTime();
                         }
                     }
                     if (c.IsKeyDown(self.imap.right) and !self.rightBlocked()) {
-                        self.das_count += 1;
-                        if (self.das_count > DAS and (((self.das_count - DAS) % ARR) == 0)) {
+                        const now = c.GetTime();
+                        const das_condition = (
+                            (now - self.time_das) >= DAS) and 
+                            ((now - self.time_ar) >= DASART);
+                        if (das_condition) {
                             self.active_tetramino.move_right();
+                            self.time_ar = c.GetTime();
                         }
                     }
-                    if (c.IsKeyReleased(self.imap.left)) {
-                        self.das_count = 0;
-                    }
-                    if (c.IsKeyReleased(self.imap.right)) {
-                        self.das_count = 0;
-                    }
+                    // if (c.IsKeyReleased(self.imap.left)) {
+                    //     self.time_das_count = 0;
+                    // }
+                    // if (c.IsKeyReleased(self.imap.right)) {
+                    //     self.das_count = 0;
+                    // }
                     if (c.IsKeyDown(self.imap.@"soft drop")) {
-                        if (!self.downBlocked() and ((self.drop_speed_counter % 3) == 0)) {
+                        if (!self.downBlocked() and ((c.GetTime() - self.time_drop) >= DART)) {
                             self.active_tetramino.move_down();
                             self.score += 1;
+                            self.time_drop = c.GetTime();
                         } else {
                             self.lockDelay();
                         }
                     }
-                    if (c.IsKeyReleased(self.imap.@"soft drop")) {
-                        self.drop_speed_counter = 0;
-                    }
+                    // if (c.IsKeyReleased(self.imap.@"soft drop")) {
+                    //     self.drop_speed_counter = 0;
+                    // }
                     if (c.IsKeyPressed(self.imap.@"hard drop")) {
                         var cells: u64 = 0; 
                         while(!self.downBlocked()) {
@@ -166,18 +189,14 @@ pub const Game = struct{
                         self.menu.state = .ExitGame;
                     }
 
-                    self.frame_until_drop += 1;
-                    const drop_elapsed = self.frame_until_drop > self.frames_for_drop;
-                    // (self.clock.now(io).nanoseconds - self.time_drop
-                    // ) > self.timeToDrop;
+                    const drop_elapsed = (c.GetTime() - self.time_drop) >= self.time_to_drop;
                     if (drop_elapsed) {
                         if (!self.downBlocked()) {
                             self.active_tetramino.move_down();
                         } else {
                             self.lockDelay();
                         }
-                        //self.time_drop = self.clock.now(io).nanoseconds;
-                        self.frame_until_drop = 0;
+                        self.time_drop = c.GetTime();
                     }
 
                     if (self.in_lock_delay and self.downBlocked()) {
@@ -194,6 +213,16 @@ pub const Game = struct{
 
                     continue :loop self.menu.state;
                 },
+                .RemappingInput => |str| {
+                    const end = str.len;
+                    const field = str[0..end - 2];
+                    const new_key = self.imap.rebind(field);
+                    if (new_key != 0) {
+                        self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
+                    }
+                    self.drawGame();
+                    continue :loop self.menu.state;
+                },
                 else => {
                     self.menu.menu_loop();
                     self.drawGame();
@@ -207,11 +236,9 @@ pub const Game = struct{
     fn lockDelay(self: *Game) void {
         if (!self.in_lock_delay) {
             self.in_lock_delay = true;
-            self.frame_until_lock = 0;
+            self.time_lock = c.GetTime();
         } else {
-            self.frame_until_lock += 1;
-            const lock_elapsed = self.frame_until_lock > LOCKRATE; 
-            //(self.clock.now(io).nanoseconds - self.time_lock) > LOCKTIME;
+            const lock_elapsed = (c.GetTime() - self.time_lock) >= LOCKDELAY;
             if (lock_elapsed) {
                 self.lockTetramino();
                 self.running = !self.spawnTetramino();
@@ -274,11 +301,8 @@ pub const Game = struct{
     fn increaseLevel(self: *Game) void {
         self.level_sub_one += 1;
         const level_sub_one = @as(f64, @floatFromInt(self.level_sub_one));
-        self.frames_for_drop = @as(
-            u8, 
-            @intFromFloat(
-                FRAMERATE * std.math.pow(f64, (0.8 - level_sub_one * 0.007), level_sub_one)
-            )
+        self.time_to_drop = std.math.pow(
+            f64, (0.8 - level_sub_one * 0.007), level_sub_one
         );
     }
 
@@ -411,13 +435,14 @@ pub const Game = struct{
 
                 x = 200;
                 y = 45;
-                c.DrawText("HOLD:", x, y - 40 , 14, c.LIGHTGRAY);
+                c.DrawText("HOLD:", x, y - 20 , 14, c.LIGHTGRAY);
                 if (self.hold_tetramino) |hold| {
                     drawPiece(hold, &x, &y);
                 }
+                y = 45;
 
                 x = controler;
-                y += SQUARE_SIZE;
+                y += 2 * SQUARE_SIZE;
                 c.DrawText("NEXT:", x, y - 60, 14, c.LIGHTGRAY);
                 c.DrawText(c.TextFormat("LINES:      %06i", self.lines_cleared), x + 100, y - 40, 14, c.LIGHTGRAY);
                 c.DrawText(c.TextFormat("SCORE:      %06i", self.score), x + 100, y - 60, 14, c.LIGHTGRAY);
@@ -466,6 +491,10 @@ pub const Game = struct{
                     }
                 }
                 c.DrawText(">", (2 * @as(c_int, @intFromEnum(screen.position_x)) + 1) * @divFloor(screenWidth, 4) - 20, 200 + 20 * @as(c_int, @intFromEnum(screen.position_y)), item_font_size, c.LIGHTGRAY);
+            },
+            .RemappingInput => |str| {
+                c.DrawText("Press a key now to remap your selection", screenWidth / 2, screenHeight / 2, 12, c.LIGHTGRAY);
+                c.DrawText(str, screenWidth / 2, screenHeight / 2 + 20, 12, c.LIGHTGRAY);
             },
             else => {},
         }
@@ -591,7 +620,7 @@ pub fn Matrix(rows: usize, columns: usize) type {
                 r -= 1;
             }
             self.array[0] = .{false} ** MAXCOLS;
-            self.color_array[0] = .{c.BLACK} ** MAXCOLS;
+            self.color_array[0] = .{c.WHITE} ** MAXCOLS;
         }
 
         pub fn checkOverlap(self: *const Self, block_pos: [4][2]isize) bool {
@@ -624,14 +653,18 @@ pub const InputMapping = struct {
     pause: c_int,
     exit: c_int,
 
-    fn rebind(self: *InputMapping, field: []u8) void {
+    fn rebind(self: *InputMapping, field: []const u8) c_int {
         const new_key = c.GetKeyPressed();
+        std.debug.print("{s}", .{GetKeyText(new_key)});
         const fields = @typeInfo(InputMapping).@"struct".fields;
-        inline for (fields) |fld| {
-            if (std.mem.eql(u8, fld.name, field)) {
-                @field(self, fld.name) = new_key;
+        if (new_key > 0) {
+            inline for (fields) |fld| {
+                if (std.mem.eql(u8, fld.name, field)) {
+                    @field(self.*, fld.name) = new_key;
+                }
             }
         }
+        return new_key;
     }
 
     fn reset_default(self: *InputMapping) void {
@@ -767,3 +800,4 @@ pub fn GetKeyText(key: c_int) [:0]const u8 {
         else => "",
     };
 }
+

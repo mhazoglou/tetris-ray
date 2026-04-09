@@ -9,6 +9,7 @@ const MenuState = union(enum) {
     InGame,
     PauseMenu: PauseScreen,
     GameOverMenu: GameOverScreen,
+    RemappingInput: [:0]const u8,
     ExitGame,
 };
 
@@ -234,7 +235,13 @@ pub const Menu = struct {
             .ControlsMenu => |screen| {
                 const y = @intFromEnum(screen.position_y);
                 const x = @intFromEnum(screen.position_x);
-                _ = screen.arr_str[y][x];
+                if ((y == 3) and (x == 1)) {
+                    self.state = .{ .SettingsMenu = settingsScreen};
+                } else {
+                    self.state = .{ .RemappingInput = screen.arr_str[y][x]};
+                }
+
+                // _ = screen.arr_str[y][x];
             },
             else => {},
         }
