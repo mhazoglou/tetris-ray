@@ -97,15 +97,31 @@ pub const Game = struct{
 
     pub fn gameLoop(self: *Game) !void {
 
-        c.InitWindow(screenWidth, screenHeight, "classic game: tetris");
+        c.InitWindow(screenWidth, screenHeight, "Tetris");
+        defer c.CloseWindow();        // Close window and OpenGL context
+
+        // load a nice monospaced nerd font
+        const font = c.LoadFont("resources/DepartureMonoNerdFontMono-Regular.otf");
+        defer c.UnloadFont(font);
+
+        c.InitAudioDevice();              // Initialize audio device
+        var music = c.LoadMusicStream("resources/theme_A.mp3");
+        const rot_sound = c.LoadSound("resources/Rotate_Piece_Sound_Effect.mp3");
+        defer c.UnloadMusicStream(music);
+        c.PlayMusicStream(music);
+        defer c.StopMusicStream(music);
+        c.SetMusicPan(music, 0.0);
+        c.SetMusicVolume(music, 0.8);
+
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) {   // Detect window close button or ESC key
 
             loop: switch (self.menu.state) {
                 .ExitGame => {
-                    break;// c.CloseWindow();
+                    break;
                 },
                 .InGame => {
+                    c.UpdateMusicStream(music);
                     if (c.IsKeyPressed(self.imap.left) and !self.leftBlocked()) {
                         self.active_tetramino.move_left();
                         self.time_das = c.GetTime();
@@ -136,12 +152,6 @@ pub const Game = struct{
                             self.time_ar = c.GetTime();
                         }
                     }
-                    // if (c.IsKeyReleased(self.imap.left)) {
-                    //     self.time_das_count = 0;
-                    // }
-                    // if (c.IsKeyReleased(self.imap.right)) {
-                    //     self.das_count = 0;
-                    // }
                     if (c.IsKeyDown(self.imap.@"soft drop")) {
                         if (!self.downBlocked() and ((c.GetTime() - self.time_drop) >= DART)) {
                             self.active_tetramino.move_down();
@@ -151,9 +161,6 @@ pub const Game = struct{
                             self.lockDelay();
                         }
                     }
-                    // if (c.IsKeyReleased(self.imap.@"soft drop")) {
-                    //     self.drop_speed_counter = 0;
-                    // }
                     if (c.IsKeyPressed(self.imap.@"hard drop")) {
                         var cells: u64 = 0; 
                         while(!self.downBlocked()) {
@@ -172,6 +179,7 @@ pub const Game = struct{
                         const opt_wall_kick = self.superRotationSystem(.CW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CW(wall_kick);
+                            c.PlaySound(rot_sound);
                             self.in_lock_delay = false;
                         }
                     }
@@ -179,6 +187,7 @@ pub const Game = struct{
                         const opt_wall_kick = self.superRotationSystem(.CCW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CCW(wall_kick);
+                            c.PlaySound(rot_sound);
                             self.in_lock_delay = false;
                         }
                     }
@@ -209,28 +218,36 @@ pub const Game = struct{
                         self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
                         self.reset();
                     }
-                    self.drawGame();
 
+                    self.drawGame(font);
                     continue :loop self.menu.state;
                 },
                 .RemappingInput => |str| {
+                    c.UpdateMusicStream(music);
                     const end = str.len;
                     const field = str[0..end - 2];
                     const new_key = self.imap.rebind(field);
                     if (new_key != 0) {
                         self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
                     }
-                    self.drawGame();
+                    self.drawGame(font);
+                    continue :loop self.menu.state;
+                },
+                .ChangeMusic => |str| {
+                    music = c.LoadMusicStream(str);
+                    c.PlayMusicStream(music);
+                    c.UpdateMusicStream(music);
+                    self.menu.state = .{ .MusicMenu = menu.musicScreen };
                     continue :loop self.menu.state;
                 },
                 else => {
+                    c.UpdateMusicStream(music);
                     self.menu.menu_loop();
-                    self.drawGame();
+                    self.drawGame(font);
                     continue :loop self.menu.state;
                 },
             }
         }
-        c.CloseWindow();        // Close window and OpenGL context
     }
 
     fn lockDelay(self: *Game) void {
@@ -392,7 +409,7 @@ pub const Game = struct{
         self.just_held = true;
     }
 
-    pub fn drawGame(self: Game) void {
+    pub fn drawGame(self: Game, font: c.Font) void {
 
         const state = self.state;
         const active_tetramino = self.active_tetramino;
@@ -411,7 +428,6 @@ pub const Game = struct{
                         if (state.array[row][col]) {
                             c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, state.color_array[row][col]);
                             x += SQUARE_SIZE;
-                            // state.color_array[row][col] stl.mino_block;
                         } else if (active_tetramino.isOccupied(row, col)) {
                             c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, active_tetramino.get_color());
                             x += SQUARE_SIZE;
@@ -435,7 +451,7 @@ pub const Game = struct{
 
                 x = 200;
                 y = 45;
-                c.DrawText("HOLD:", x, y - 20 , 14, c.LIGHTGRAY);
+                c.DrawTextEx(font,"HOLD:", .{ .x = @floatFromInt(x), .y = @floatFromInt(y - 20)}, 14, 0, c.LIGHTGRAY);
                 if (self.hold_tetramino) |hold| {
                     drawPiece(hold, &x, &y);
                 }
@@ -443,13 +459,15 @@ pub const Game = struct{
 
                 x = controler;
                 y += 2 * SQUARE_SIZE;
-                c.DrawText("NEXT:", x, y - 60, 14, c.LIGHTGRAY);
-                c.DrawText(c.TextFormat("LINES:      %06i", self.lines_cleared), x + 100, y - 40, 14, c.LIGHTGRAY);
-                c.DrawText(c.TextFormat("SCORE:      %06i", self.score), x + 100, y - 60, 14, c.LIGHTGRAY);
-                c.DrawText(c.TextFormat("LEVEL:      %06i", self.level_sub_one + 1), x + 100, y - 20, 14, c.LIGHTGRAY);
+                const x_float: f32 = @floatFromInt(x);
+                const y_float: f32 = @floatFromInt(y);
+                c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 60 }, 14, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("LINES:      %06i", self.lines_cleared), .{ .x = x_float + 100, .y = y_float - 40}, 14, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("SCORE:      %06i", self.score), .{ .x = x_float + 100, .y = y_float - 60}, 14, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("LEVEL:      %06i", self.level_sub_one + 1), .{ .x = x_float + 100, .y = y_float - 20}, 14, 0, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |screen| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .MusicMenu => |screen| {
                 const banner_font_size = 60;
                 const item_font_size = 12;
                 const draw_top_y = screenHeight / 4;
@@ -476,21 +494,21 @@ pub const Game = struct{
                 const banner_font_size = 60;
                 const item_font_size = 12;
                 c.DrawText(screen.banner, screenWidth / 2 - @divFloor(c.MeasureText(screen.banner, banner_font_size), 2), 100, banner_font_size, c.LIGHTGRAY);
-                // const ti_imap = @typeInfo(self.imap);
                 for (0..4) |row| {
                     for (0..2) |col| {
                         const field = screen.arr_str[row][col];
                         const end = field.len;
-                        c.DrawText(field, (2 * @as(c_int, @intCast(col)) + 1) * @divFloor(screenWidth, 4), 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
+                        const pos_x = (2 * @as(c_int, @intCast(col)) + 3) * @divFloor(screenWidth, 8);
+                        c.DrawText(field, pos_x - c.MeasureText(field, item_font_size), 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
                         const fields = @typeInfo(InputMapping).@"struct".fields;
                         inline for (fields) |fld| {
                             if (std.mem.eql(u8, fld.name, field[0..end - 2])) {
-                                c.DrawText(GetKeyText(@field(self.imap, fld.name)), (2 * @as(c_int, @intCast(col)) + 1) * @divFloor(screenWidth, 4) + 80, 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
+                                c.DrawText(GetKeyText(@field(self.imap, fld.name)), pos_x, 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
                             }
                         }
                     }
                 }
-                c.DrawText(">", (2 * @as(c_int, @intFromEnum(screen.position_x)) + 1) * @divFloor(screenWidth, 4) - 20, 200 + 20 * @as(c_int, @intFromEnum(screen.position_y)), item_font_size, c.LIGHTGRAY);
+                c.DrawText(">", (2 * @as(c_int, @intFromEnum(screen.position_x)) + 3) * @divFloor(screenWidth, 8) - 80, 200 + 20 * @as(c_int, @intFromEnum(screen.position_y)), item_font_size, c.LIGHTGRAY);
             },
             .RemappingInput => |str| {
                 c.DrawText("Press a key now to remap your selection", screenWidth / 2, screenHeight / 2, 12, c.LIGHTGRAY);

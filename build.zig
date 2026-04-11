@@ -96,6 +96,7 @@ pub fn build(b: *std.Build) void {
     // step). By default the install prefix is `zig-out/` but can be overridden
     // by passing `--prefix` or `-p`.
     b.installArtifact(exe);
+    b.installBinFile("./resources/DepartureMonoNerdFontMono-Regular.otf", "./resources/DepartureMonoNerdFontMono-Regular.otf");
 
     // This creates a top level step. Top level steps have a name and can be
     // invoked by name when running `zig build` (e.g. `zig build run`).

@@ -5,11 +5,13 @@ const c = @import("c.zig").c;
 const MenuState = union(enum) {
     StartMenu: StartScreen,
     SettingsMenu: SettingsScreen,
+    MusicMenu: MusicScreen,
     ControlsMenu: ControlsScreen,
     InGame,
     PauseMenu: PauseScreen,
     GameOverMenu: GameOverScreen,
     RemappingInput: [:0]const u8,
+    ChangeMusic: [:0]const u8,
     ExitGame,
 };
 
@@ -85,6 +87,7 @@ const SettingsScreen = MenuScreen();
 const PauseScreen = MenuScreen();
 const GameOverScreen = MenuScreen();
 const ControlsScreen = MenuScreen();
+const MusicScreen = MenuScreen();
 
 pub const startScreen = StartScreen.init(.two, .zero, 
     .{ 
@@ -131,6 +134,15 @@ pub const controlsScreen = ControlsScreen.init(.three, .one,
     }, 
     "Controls"
 );
+pub const musicScreen = MusicScreen.init(.three, .one, 
+    .{
+        .{"Theme A"} ++ .{""} ** 3, 
+        .{"Theme B"} ++ .{""} ** 3, 
+        .{"Theme C"} ++ .{""} ** 3, 
+        .{"Return"} ++ .{""} ** 3, 
+    }, 
+    "Theme Select"
+);
 
 pub const Menu = struct {
     state: MenuState,
@@ -164,7 +176,7 @@ pub const Menu = struct {
 
     pub fn cycleUp(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
                 pos.cycleUp();
             },
             else => {},
@@ -173,7 +185,7 @@ pub const Menu = struct {
 
     pub fn cycleDown(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
                 pos.cycleDown();
             },
             else => {}
@@ -182,7 +194,7 @@ pub const Menu = struct {
 
     pub fn cycleLeft(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
                 pos.cycleLeft();
             },
             else => {},
@@ -191,7 +203,7 @@ pub const Menu = struct {
 
     pub fn cycleRight(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
                 pos.cycleRight();
             },
             else => {}
@@ -210,8 +222,8 @@ pub const Menu = struct {
             },
             .SettingsMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => {}, //need to implement theme select
-                    .one => self.state = .{ .ControlsMenu = controlsScreen }, // need to implement control customization
+                    .zero => self.state = .{ .MusicMenu = musicScreen },
+                    .one => self.state = .{ .ControlsMenu = controlsScreen },
                     .two => self.state = .{ .StartMenu = startScreen},
                     .three => unreachable,
                 }
@@ -240,8 +252,14 @@ pub const Menu = struct {
                 } else {
                     self.state = .{ .RemappingInput = screen.arr_str[y][x]};
                 }
-
-                // _ = screen.arr_str[y][x];
+            },
+            .MusicMenu => |screen| {
+                switch (screen.position_y) {
+                    .zero => self.state = .{ .ChangeMusic = "resources/theme_A.mp3" },
+                    .one => self.state = .{ .ChangeMusic = "resources/theme_B.mp3" },
+                    .two => self.state = .{ .ChangeMusic = "resources/theme_C.mp3" },
+                    .three => self.state = .{ .SettingsMenu = settingsScreen },
+                }
             },
             else => {},
         }
