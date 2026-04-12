@@ -107,6 +107,10 @@ pub const Game = struct{
         c.InitAudioDevice();              // Initialize audio device
         var music = c.LoadMusicStream("resources/theme_A.mp3");
         const rot_sound = c.LoadSound("resources/Rotate_Piece_Sound_Effect.mp3");
+        // const lock_sound = c.LoadSound("resources/se_game_landing.wav");
+        const sdrop_sound = c.LoadSound("resources/se_game_softdrop.wav");
+        const hold_sound = c.LoadSound("resources/se_game_hold.wav");
+        const hdrop_sound = c.LoadSound("resources/se_game_harddrop.wav");
         defer c.UnloadMusicStream(music);
         c.PlayMusicStream(music);
         defer c.StopMusicStream(music);
@@ -157,6 +161,7 @@ pub const Game = struct{
                             self.active_tetramino.move_down();
                             self.score += 1;
                             self.time_drop = c.GetTime();
+                            c.PlaySound(sdrop_sound);
                         } else {
                             self.lockDelay();
                         }
@@ -171,9 +176,11 @@ pub const Game = struct{
                             self.running = !self.spawnTetramino();
                         }
                         self.score += 2 * cells;
+                        c.PlaySound(hdrop_sound);
                     }
                     if (c.IsKeyPressed(self.imap.hold)) {
                         self.holdPiece();
+                        c.PlaySound(hold_sound);
                     }
                     if (c.IsKeyPressed(self.imap.@"rotate CW")) {
                         const opt_wall_kick = self.superRotationSystem(.CW);
@@ -418,6 +425,7 @@ pub const Game = struct{
         c.ClearBackground(c.BLACK);
         switch (self.menu.state) {
             .InGame => {
+                const fontsize: c_int = 16;
                 var x: c_int = screenWidth/2 - (MAXCOLS * SQUARE_SIZE/2);
                 var y: c_int = screenHeight/2 - ((MAXROWS - 2) * SQUARE_SIZE/2);
 
@@ -427,17 +435,14 @@ pub const Game = struct{
                     for (0..state.columns) |col| {
                         if (state.array[row][col]) {
                             c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, state.color_array[row][col]);
-                            x += SQUARE_SIZE;
                         } else if (active_tetramino.isOccupied(row, col)) {
                             c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, active_tetramino.get_color());
-                            x += SQUARE_SIZE;
-                        } else {
-                            c.DrawLine(x, y, x + SQUARE_SIZE, y, c.LIGHTGRAY );
-                            c.DrawLine(x, y, x, y + SQUARE_SIZE, c.LIGHTGRAY );
-                            c.DrawLine(x + SQUARE_SIZE, y, x + SQUARE_SIZE, y + SQUARE_SIZE, c.LIGHTGRAY );
-                            c.DrawLine(x, y + SQUARE_SIZE, x + SQUARE_SIZE, y + SQUARE_SIZE, c.LIGHTGRAY );
-                            x += SQUARE_SIZE;
                         }
+                        c.DrawLine(x, y, x + SQUARE_SIZE, y, c.LIGHTGRAY );
+                        c.DrawLine(x, y, x, y + SQUARE_SIZE, c.LIGHTGRAY );
+                        c.DrawLine(x + SQUARE_SIZE, y, x + SQUARE_SIZE, y + SQUARE_SIZE, c.LIGHTGRAY );
+                        c.DrawLine(x, y + SQUARE_SIZE, x + SQUARE_SIZE, y + SQUARE_SIZE, c.LIGHTGRAY );
+                        x += SQUARE_SIZE;
                     }
                     x = controller;
                     y += SQUARE_SIZE;
@@ -451,7 +456,7 @@ pub const Game = struct{
 
                 x = 200;
                 y = 45;
-                c.DrawTextEx(font,"HOLD:", .{ .x = @floatFromInt(x), .y = @floatFromInt(y - 20)}, 14, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font,"HOLD:", .{ .x = @floatFromInt(x), .y = @floatFromInt(y - 20)}, fontsize, 0, c.LIGHTGRAY);
                 if (self.hold_tetramino) |hold| {
                     drawPiece(hold, &x, &y);
                 }
@@ -461,10 +466,10 @@ pub const Game = struct{
                 y += 2 * SQUARE_SIZE;
                 const x_float: f32 = @floatFromInt(x);
                 const y_float: f32 = @floatFromInt(y);
-                c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 60 }, 14, 0, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("LINES:      %06i", self.lines_cleared), .{ .x = x_float + 100, .y = y_float - 40}, 14, 0, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("SCORE:      %06i", self.score), .{ .x = x_float + 100, .y = y_float - 60}, 14, 0, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("LEVEL:      %06i", self.level_sub_one + 1), .{ .x = x_float + 100, .y = y_float - 20}, 14, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 60 }, fontsize, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 60}, fontsize, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, fontsize, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 120}, fontsize, 0, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
             .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .MusicMenu => |screen| {
