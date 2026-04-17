@@ -101,9 +101,9 @@ pub const Game = struct{
 
     pub fn gameLoop(self: *Game) !void {
 
+        c.SetConfigFlags(c.FLAG_WINDOW_RESIZABLE | c.FLAG_VSYNC_HINT);
         c.InitWindow(screenWidth, screenHeight, "Tetris");
         defer c.CloseWindow();      // Close window and OpenGL context
-        c.SetConfigFlags(c.FLAG_WINDOW_RESIZABLE | c.FLAG_VSYNC_HINT);
 
         // load a nice monospaced nerd font
         font = c.GetFontDefault();// c.LoadFont("resources/DepartureMonoNerdFontMono-Regular.otf"); // 
