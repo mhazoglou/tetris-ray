@@ -3,9 +3,13 @@ const Tetramino = @import("tetramino.zig").Tetramino;
 const menu = @import("menu.zig");
 const c = @import("c.zig").c;
 
-const screenWidth: c_int = 800;
-const screenHeight: c_int = 450;
-const SQUARE_SIZE = 20;
+var font: c.Font = undefined;
+var screenWidth: u16 = 800;
+var screenHeight: u16 = 450;
+var item_font_size: u16 = 16;
+var banner_font_size: u16 = 60;
+var spacing: u16 = 2;
+var squareSize: u16 = 20;
 const FRAMERATE = 60;
 
 const MAXROWS = 22;
@@ -98,10 +102,11 @@ pub const Game = struct{
     pub fn gameLoop(self: *Game) !void {
 
         c.InitWindow(screenWidth, screenHeight, "Tetris");
-        defer c.CloseWindow();        // Close window and OpenGL context
+        defer c.CloseWindow();      // Close window and OpenGL context
+        c.SetConfigFlags(c.FLAG_WINDOW_RESIZABLE | c.FLAG_VSYNC_HINT);
 
         // load a nice monospaced nerd font
-        const font = c.LoadFont("resources/DepartureMonoNerdFontMono-Regular.otf");
+        font = c.GetFontDefault();// c.LoadFont("resources/DepartureMonoNerdFontMono-Regular.otf"); // 
         defer c.UnloadFont(font);
 
         c.InitAudioDevice();              // Initialize audio device
@@ -226,7 +231,7 @@ pub const Game = struct{
                         self.reset();
                     }
 
-                    self.drawGame(font);
+                    self.drawGame();
                     continue :loop self.menu.state;
                 },
                 .RemappingInput => |str| {
@@ -237,7 +242,7 @@ pub const Game = struct{
                     if (new_key != 0) {
                         self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
                     }
-                    self.drawGame(font);
+                    self.drawGame();
                     continue :loop self.menu.state;
                 },
                 .ChangeMusic => |str| {
@@ -250,7 +255,7 @@ pub const Game = struct{
                 else => {
                     c.UpdateMusicStream(music);
                     self.menu.menu_loop();
-                    self.drawGame(font);
+                    self.drawGame();
                     continue :loop self.menu.state;
                 },
             }
@@ -416,7 +421,29 @@ pub const Game = struct{
         self.just_held = true;
     }
 
-    pub fn drawGame(self: Game, font: c.Font) void {
+    pub fn drawGame(self: Game) void {
+        if (c.IsWindowResized()) {
+            const scale_factor: u64 = @intCast(min(
+                c.GetScreenWidth() * screenHeight, 
+                c.GetScreenHeight() * screenWidth
+            ));
+            std.debug.print("Height: {any}\n", .{screenHeight});
+            std.debug.print("Width: {any}\n", .{screenWidth});
+            const scale_divisor: u64 = @as(u64, screenHeight) * @as(u64, screenWidth);
+
+            const tempWidth: u64 = screenWidth * scale_factor;
+            screenWidth = @intCast(@divFloor(tempWidth, scale_divisor)); 
+            const tempHeight: u64 = screenHeight * scale_factor;
+            screenHeight = @intCast(@divFloor(tempHeight, scale_divisor));
+            const tempSquareSize: u64 = squareSize * scale_factor;
+            squareSize = @intCast(@divFloor(tempSquareSize, scale_divisor));
+            const tempSpacing: u64 = spacing * scale_factor;
+            spacing = @intCast(@divFloor(tempSpacing, scale_divisor));
+            const tempIFS: u64 = item_font_size * scale_factor;
+            item_font_size = @intCast(@divFloor(tempIFS, scale_divisor));
+            const tempBFS: u64 = banner_font_size * scale_factor;
+            banner_font_size = @intCast(@divFloor(tempBFS, scale_divisor));
+        }
 
         const state = self.state;
         const active_tetramino = self.active_tetramino;
@@ -425,56 +452,54 @@ pub const Game = struct{
         c.ClearBackground(c.BLACK);
         switch (self.menu.state) {
             .InGame => {
-                const fontsize: c_int = 16;
-                var x: c_int = screenWidth/2 - (MAXCOLS * SQUARE_SIZE/2);
-                var y: c_int = screenHeight/2 - ((MAXROWS - 2) * SQUARE_SIZE/2);
+                const fontsize: c_int = 14;
+                var x: c_int = screenWidth / 2 - MAXCOLS * squareSize / 2;
+                var y: c_int = screenHeight / 2 - (MAXROWS - 2) * squareSize / 2;
 
                 const controller: c_int = x;
 
                 for (2..MAXROWS) |row| {
                     for (0..state.columns) |col| {
                         if (state.array[row][col]) {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, state.color_array[row][col]);
+                            c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
                         } else if (active_tetramino.isOccupied(row, col)) {
-                            c.DrawRectangle(x, y, SQUARE_SIZE, SQUARE_SIZE, active_tetramino.get_color());
+                            c.DrawRectangle(x, y, squareSize, squareSize, active_tetramino.get_color());
                         }
-                        c.DrawLine(x, y, x + SQUARE_SIZE, y, c.LIGHTGRAY );
-                        c.DrawLine(x, y, x, y + SQUARE_SIZE, c.LIGHTGRAY );
-                        c.DrawLine(x + SQUARE_SIZE, y, x + SQUARE_SIZE, y + SQUARE_SIZE, c.LIGHTGRAY );
-                        c.DrawLine(x, y + SQUARE_SIZE, x + SQUARE_SIZE, y + SQUARE_SIZE, c.LIGHTGRAY );
-                        x += SQUARE_SIZE;
+                        c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
+                        c.DrawLine(x, y, x, y + squareSize, c.LIGHTGRAY );
+                        c.DrawLine(x + squareSize, y, x + squareSize, y + squareSize, c.LIGHTGRAY );
+                        c.DrawLine(x, y + squareSize, x + squareSize, y + squareSize, c.LIGHTGRAY );
+                        x += squareSize;
                     }
                     x = controller;
-                    y += SQUARE_SIZE;
+                    y += squareSize;
                 }
-                x = 550;
-                y = 45;
+                x = screenWidth / 2 + MAXCOLS * squareSize;
+                y = screenHeight / 4;
 
                 const controler: c_int = x;
                 const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
                 drawPiece(next, &x, &y);
 
-                x = 200;
-                y = 45;
-                c.DrawTextEx(font,"HOLD:", .{ .x = @floatFromInt(x), .y = @floatFromInt(y - 20)}, fontsize, 0, c.LIGHTGRAY);
+                x = screenWidth / 2 - MAXCOLS * squareSize;
+                y = screenHeight / 4;
+                c.DrawTextEx(font,"HOLD:", .{ .x = @floatFromInt(x), .y = @floatFromInt(y - squareSize)}, fontsize, spacing, c.LIGHTGRAY);
                 if (self.hold_tetramino) |hold| {
                     drawPiece(hold, &x, &y);
                 }
-                y = 45;
+                y = screenHeight / 4;
 
                 x = controler;
-                y += 2 * SQUARE_SIZE;
+                y += 3 * squareSize;
                 const x_float: f32 = @floatFromInt(x);
                 const y_float: f32 = @floatFromInt(y);
-                c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 60 }, fontsize, 0, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 60}, fontsize, 0, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, fontsize, 0, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 120}, fontsize, 0, c.LIGHTGRAY);
+                c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 4 * squareSize }, fontsize, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 4 * squareSize}, fontsize, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, fontsize, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 8 * squareSize}, fontsize, spacing, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
             .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .MusicMenu => |screen| {
-                const banner_font_size = 60;
-                const item_font_size = 12;
                 const draw_top_y = screenHeight / 4;
                 const draw_left_x = screenWidth / 4;
                 const draw_right_x = 3 * screenWidth / 4;
@@ -488,36 +513,37 @@ pub const Game = struct{
                 c.DrawLine(draw_right_x - block_size, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
                 c.DrawLine(draw_left_x + block_size, draw_top_y + 2 * block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
 
-                c.DrawText(screen.banner, screenWidth/2 - @divFloor(c.MeasureText(screen.banner, banner_font_size), 2), draw_top_y + screenWidth / 24, banner_font_size, c.LIGHTGRAY);
+                const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
+                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - @as(f32, banner_dim.x) / 2, .y = @as(f32, draw_top_y + screenWidth / 24)}, banner_font_size, spacing, c.LIGHTGRAY);
                 inline for (0..4) |i| {
-                    c.DrawText(screen.arr_str[i][0], screenWidth/2 - @divFloor(c.MeasureText(screen.arr_str[i][0], item_font_size), 2), draw_top_y + 2 * screenWidth / 9 + 20 * @as(c_int, @intCast(i)), item_font_size, c.LIGHTGRAY);
+                    const item_dim = c.MeasureTextEx(font, screen.arr_str[i][0], item_font_size, spacing);
+                    c.DrawTextEx(font, screen.arr_str[i][0], .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - item_dim.x / 2, .y = @as(f32, draw_top_y + 2 * screenWidth / 9) + squareSize * @as(f32, @floatFromInt(i)) }, item_font_size, spacing, c.LIGHTGRAY);
                 }
-                c.DrawText(">", screenWidth/2 - 60, draw_top_y + 2 * screenWidth / 9 + 20 * @intFromEnum(screen.position_y), item_font_size, c.LIGHTGRAY);
+                c.DrawTextEx(font, ">", .{ .x = @as(f32, screenWidth/2 - 3 * squareSize), .y = @as(f32, draw_top_y + 2 * screenWidth / 9) + squareSize * @intFromEnum(screen.position_y)}, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
             .ControlsMenu => |screen| {
-                const banner_font_size = 60;
-                const item_font_size = 12;
-                c.DrawText(screen.banner, screenWidth / 2 - @divFloor(c.MeasureText(screen.banner, banner_font_size), 2), 100, banner_font_size, c.LIGHTGRAY);
+                const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
+                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y}, banner_font_size, spacing, c.LIGHTGRAY);
                 for (0..4) |row| {
                     for (0..2) |col| {
                         const field = screen.arr_str[row][col];
                         const end = field.len;
-                        const pos_x = (2 * @as(c_int, @intCast(col)) + 3) * @divFloor(screenWidth, 8);
-                        c.DrawText(field, pos_x - c.MeasureText(field, item_font_size), 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
+                        const pos_x: f32 = (2 * @as(f32, @floatFromInt(col)) + 3) * @divFloor(screenWidth, 8);
+                        c.DrawTextEx(font, field, .{ .x = pos_x - c.MeasureTextEx(font, field, item_font_size, spacing).x, .y = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @floatFromInt(row))}, item_font_size, spacing, c.LIGHTGRAY);
                         const fields = @typeInfo(InputMapping).@"struct".fields;
                         inline for (fields) |fld| {
                             if (std.mem.eql(u8, fld.name, field[0..end - 2])) {
-                                c.DrawText(GetKeyText(@field(self.imap, fld.name)), pos_x, 200 + 20 * @as(c_int, @intCast(row)), item_font_size, c.LIGHTGRAY);
+                                c.DrawTextEx(font, GetKeyText(@field(self.imap, fld.name)), .{ .x = pos_x, .y = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @floatFromInt(row))}, item_font_size, spacing, c.LIGHTGRAY);
                             }
                         }
                     }
                 }
-                c.DrawText(">", (2 * @as(c_int, @intFromEnum(screen.position_x)) + 3) * @divFloor(screenWidth, 8) - 80, 200 + 20 * @as(c_int, @intFromEnum(screen.position_y)), item_font_size, c.LIGHTGRAY);
+                c.DrawTextEx(font, ">", .{ .x = (2 * @as(f32, @intFromEnum(screen.position_x)) + 3) * @divFloor(screenWidth, 8) - 4 * squareSize, .y = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @intFromEnum(screen.position_y))}, item_font_size, spacing, c.LIGHTGRAY);
             },
             .RemappingInput => |str| {
-                c.DrawText("Press a key now to remap your selection", screenWidth / 2, screenHeight / 2, 12, c.LIGHTGRAY);
-                c.DrawText(str, screenWidth / 2, screenHeight / 2 + 20, 12, c.LIGHTGRAY);
+                c.DrawTextEx(font, "Press a key now to remap your selection", .{ .x = screenWidth / 2, .y = screenHeight / 2}, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, str, .{ .x = screenWidth / 2, .y = screenHeight / 2 + squareSize}, item_font_size, spacing, c.LIGHTGRAY);
             },
             else => {},
         }
@@ -528,68 +554,68 @@ pub const Game = struct{
         switch (piece) {
             'I' => {
                 for (0..4) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.SKYBLUE);
-                    x.* += SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.SKYBLUE);
+                    x.* += squareSize;
                 }
             },
             'O' => {
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                x.* += SQUARE_SIZE;
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                y.* += SQUARE_SIZE;
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
-                x.* -= SQUARE_SIZE;
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.YELLOW);
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.YELLOW);
+                x.* += squareSize;
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.YELLOW);
+                y.* += squareSize;
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.YELLOW);
+                x.* -= squareSize;
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.YELLOW);
             },
             'J' => {
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.BLUE);
-                y.* += SQUARE_SIZE;
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.BLUE);
+                y.* += squareSize;
                 for (0..3) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.BLUE);
-                    x.* += SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.BLUE);
+                    x.* += squareSize;
                 }
             },
             'L' => {
-                x.* += 2 * SQUARE_SIZE;
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.ORANGE);
-                y.* += SQUARE_SIZE;
+                x.* += 2 * squareSize;
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.ORANGE);
+                y.* += squareSize;
                 for (0..3) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.ORANGE);
-                    x.* -= SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.ORANGE);
+                    x.* -= squareSize;
                 }
             },
             'T' => {
-                x.* += SQUARE_SIZE;
-                c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.PURPLE);
-                y.* += SQUARE_SIZE;
-                x.* += SQUARE_SIZE;
+                x.* += squareSize;
+                c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.PURPLE);
+                y.* += squareSize;
+                x.* += squareSize;
                 for (0..3) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.PURPLE);
-                    x.* -= SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.PURPLE);
+                    x.* -= squareSize;
                 }
             },
             'S' => {
-                x.* += SQUARE_SIZE;
+                x.* += squareSize;
                 for (0..2) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.GREEN);
-                    x.* += SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.GREEN);
+                    x.* += squareSize;
                 }
-                y.* += SQUARE_SIZE;
-                x.* -= 2 * SQUARE_SIZE;
+                y.* += squareSize;
+                x.* -= 2 * squareSize;
                 for (0..2) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.GREEN);
-                    x.* -= SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.GREEN);
+                    x.* -= squareSize;
                 }
             },
             'Z' => {
                 for (0..2) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.RED);
-                    x.* += SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.RED);
+                    x.* += squareSize;
                 }
-                y.* += SQUARE_SIZE;
+                y.* += squareSize;
                 for (0..2) |_| {
-                    c.DrawRectangle(x.*, y.*, SQUARE_SIZE, SQUARE_SIZE, c.RED);
-                    x.* -= SQUARE_SIZE;
+                    c.DrawRectangle(x.*, y.*, squareSize, squareSize, c.RED);
+                    x.* -= squareSize;
                 }
             },
             else => unreachable,
@@ -824,3 +850,10 @@ pub fn GetKeyText(key: c_int) [:0]const u8 {
     };
 }
 
+fn max(x: anytype, y: anytype) @TypeOf(x) {
+    return if (x > y) x else y;
+}
+
+fn min(x: anytype, y: anytype) @TypeOf(x) {
+    return if (x < y) x else y;
+}
