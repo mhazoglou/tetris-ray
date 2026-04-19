@@ -425,27 +425,6 @@ pub const Game = struct{
 
     pub fn drawGame(self: Game) void {
         if (c.IsWindowResized()) {
-            // const scale_factor: u64 = @intCast(min(
-            //     c.GetScreenWidth() * screenHeight, 
-            //     c.GetScreenHeight() * screenWidth
-            // ));
-            // // std.debug.print("Height: {any}\n", .{screenHeight});
-            // // std.debug.print("Width: {any}\n", .{screenWidth});
-            // const scale_divisor: u64 = @as(u64, screenHeight) * @as(u64, screenWidth);
-
-            // const tempWidth: u64 = screenWidth * scale_factor;
-            // screenWidth = @intCast(@divFloor(tempWidth, scale_divisor)); 
-            // const tempHeight: u64 = screenHeight * scale_factor;
-            // screenHeight = @intCast(@divFloor(tempHeight, scale_divisor));
-            // const tempSquareSize: u64 = squareSize * scale_factor;
-            // squareSize = @intCast(@divFloor(tempSquareSize, scale_divisor));
-            // const tempSpacing: u64 = spacing * scale_factor;
-            // spacing = @intCast(@divFloor(tempSpacing, scale_divisor));
-            // const tempIFS: u64 = item_font_size * scale_factor;
-            // item_font_size = @intCast(@divFloor(tempIFS, scale_divisor));
-            // const tempBFS: u64 = banner_font_size * scale_factor;
-            // banner_font_size = @intCast(@divFloor(tempBFS, scale_divisor));
-
             const scale: f32 = min(
                 @as(f32, @floatFromInt(c.GetScreenWidth())) / @as(f32, @floatFromInt(screenWidth)), 
                 @as(f32, @floatFromInt(c.GetScreenHeight())) / @as(f32, @floatFromInt(screenHeight)),
@@ -546,27 +525,39 @@ pub const Game = struct{
             .ControlsMenu => |screen| {
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
                 c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 4 - banner_dim.y}, banner_font_size, spacing, c.LIGHTGRAY);
-                // var pointer_x: f32 = undefined;
+                //var pointer_x: f32 = undefined;
                 for (0..(@intFromEnum(screen.max_position_y) + 1)) |row| {
                     for (0..(@intFromEnum(screen.max_position_x) + 1)) |col| {
                         const field = screen.arr_str[row][col];
                         const end = field.len;
                         const pos_x: f32 = (@as(f32, @floatFromInt(col)) + 1) * @divFloor(screenWidth, 4);
+                        const pos_y: f32 = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @floatFromInt(row));
                         const field_dim = c.MeasureTextEx(font, field, item_font_size, spacing);
                         const fields = @typeInfo(InputMapping).@"struct".fields;
-                        c.DrawTextEx(font, field, .{ .x = pos_x - field_dim.x, .y = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @floatFromInt(row))}, item_font_size, spacing, c.LIGHTGRAY);
+                        var any: bool = false;
                         inline for (fields) |fld| {
                             if (std.mem.eql(u8, fld.name, field[0..end - 2])) {
-                                c.DrawTextEx(font, GetKeyText(@field(self.imap, fld.name)), .{ .x = pos_x, .y = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @floatFromInt(row))}, item_font_size, spacing, c.LIGHTGRAY);
+                                any ^= true;
+                                c.DrawTextEx(font, GetKeyText(@field(self.imap, fld.name)), .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                                c.DrawTextEx(font, field, .{ .x = pos_x - field_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                             }
+                        } 
+                        if (!any) {
+                            c.DrawTextEx(font, field, .{ .x = pos_x - field_dim.x / 2, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                        }
+                        if ((@intFromEnum(screen.position_x) == col) and (@intFromEnum(screen.position_y) == row)) {
+                            const arrow_dim = c.MeasureTextEx(font, ">", item_font_size, spacing);
+                            const arrow_shift_x = (if (any) field_dim.x else (field_dim.x / 2)) + 2 * arrow_dim.x;
+                            c.DrawTextEx(font, ">", .{ .x = pos_x - arrow_shift_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                         }
                     }
                 }
-                c.DrawTextEx(font, ">", .{ .x = (2 * @as(f32, @intFromEnum(screen.position_x)) + 3) * @divFloor(screenWidth, 8) - 4 * squareSize, .y = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @intFromEnum(screen.position_y))}, item_font_size, spacing, c.LIGHTGRAY);
             },
             .RemappingInput => |str| {
+                const remap_text = "Press a key now to remap your selection";
+                const remap_text_dim = c.MeasureTextEx(font, remap_text, item_font_size, spacing);
                 if (str.len > 0) {
-                    c.DrawTextEx(font, "Press a key now to remap your selection", .{ .x = screenWidth / 2, .y = screenHeight / 2}, item_font_size, spacing, c.LIGHTGRAY);
+                    c.DrawTextEx(font, remap_text, .{ .x = screenWidth / 2 - remap_text_dim.x / 2, .y = screenHeight / 2 - remap_text_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
                     c.DrawTextEx(font, str, .{ .x = screenWidth / 2, .y = screenHeight / 2 + squareSize}, item_font_size, spacing, c.LIGHTGRAY);
                 }
             },

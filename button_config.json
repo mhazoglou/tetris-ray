@@ -5,7 +5,7 @@
   "hard drop": 32,
   "hold": 340,
   "rotate CW": 265,
-  "rotate CCW": 341,
+  "rotate CCW": 264,
   "pause": 257,
   "exit": 256
 }
