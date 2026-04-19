@@ -1,11 +1,11 @@
 {
-    "left": "\u001B[D",
-    "right": "\u001B[C",
-    "down": "\u001B[B",
-    "hard_drop": " ",
-    "up": "\u001B[A",
-    "rotCW": "x",
-    "rotCCW": "z",
-    "pause": "\n",
-    "exit": "\u001B" 
+  "left": 263,
+  "right": 262,
+  "soft drop": 264,
+  "hard drop": 32,
+  "hold": 340,
+  "rotate CW": 265,
+  "rotate CCW": 341,
+  "pause": 257,
+  "exit": 256
 }

@@ -125,12 +125,12 @@ pub const gameOverScreen = GameOverScreen.init(.two, .zero,
     }, 
     "GAME OVER"
 );
-pub const controlsScreen = ControlsScreen.init(.three, .one, 
+pub const controlsScreen = ControlsScreen.init(.two, .two, 
     .{
-        .{"left: ", "right: "} ++ .{""} ** 2, 
-        .{"soft drop: ", "hard drop: "} ++ .{""} ** 2, 
-        .{"rotate CW: ", "rotate CCW: "} ++ .{""} ** 2, 
-        .{"pause: ", "Return"} ++ .{""} ** 2 
+        .{"left: ", "right: ", "soft drop: "} ++ .{""}, 
+        .{"hard drop: ", "rotate CW: ", "rotate CCW: "} ++ .{""}, 
+        .{"pause: ", "Reset Default", "Return"} ++ .{""}, 
+        .{""} ** 4, 
     }, 
     "Controls"
 );
@@ -247,8 +247,10 @@ pub const Menu = struct {
             .ControlsMenu => |screen| {
                 const y = @intFromEnum(screen.position_y);
                 const x = @intFromEnum(screen.position_x);
-                if ((y == 3) and (x == 1)) {
+                if ((y == 2) and (x == 2)) {
                     self.state = .{ .SettingsMenu = settingsScreen};
+                } else if ((y == 2) and (x == 1)) {
+                    self.state = .{ .RemappingInput = "" };
                 } else {
                     self.state = .{ .RemappingInput = screen.arr_str[y][x]};
                 }
