@@ -1,5 +1,4 @@
 const std = @import("std");
-const Io = std.Io;
 const c = @import("c.zig").c;
 
 const MenuState = union(enum) {
@@ -146,10 +145,12 @@ pub const musicScreen = MusicScreen.init(.three, .one,
 
 pub const Menu = struct {
     state: MenuState,
+    settings_return: MenuState,
 
     pub fn init() Menu {
         return .{
             .state = .{ .StartMenu = startScreen },
+            .settings_return = .{ .StartMenu = startScreen },
         };
     }
 
@@ -211,11 +212,15 @@ pub const Menu = struct {
     }
 
     pub fn selected(self: *Menu) void {
-        switch (self.state) {
+        const state = self.state;
+        switch (state) {
             .StartMenu => |screen| {
                 switch (screen.position_y) {
                     .zero => self.state = .InGame,
-                    .one => self.state = .{ .SettingsMenu = settingsScreen},
+                    .one => {
+                        self.state = .{ .SettingsMenu = settingsScreen};
+                        self.settings_return = .{ .StartMenu = startScreen};
+                    },
                     .two => self.state = .ExitGame,
                     .three => unreachable,
                 }
@@ -224,14 +229,17 @@ pub const Menu = struct {
                 switch (screen.position_y) {
                     .zero => self.state = .{ .MusicMenu = musicScreen },
                     .one => self.state = .{ .ControlsMenu = controlsScreen },
-                    .two => self.state = .{ .StartMenu = startScreen},
+                    .two => self.state = self.settings_return,
                     .three => unreachable,
                 }
             },
             .PauseMenu => |screen| {
                 switch (screen.position_y) {
                     .zero => self.state = .InGame,
-                    .one => self.state = .{ .SettingsMenu = settingsScreen},
+                    .one => {
+                        self.state = .{ .SettingsMenu = settingsScreen};
+                        self.settings_return = .{ .PauseMenu = pauseScreen};
+                    },
                     .two => self.state = .{ .StartMenu = startScreen},
                     .three => self.state = .ExitGame,
                 }
@@ -263,13 +271,6 @@ pub const Menu = struct {
                     .three => self.state = .{ .SettingsMenu = settingsScreen },
                 }
             },
-            else => {},
-        }
-    }
-
-    pub fn format(self: Menu, writer: *Io.Writer) !void {
-        switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu => |screen| try writer.print("{f}", .{screen}),
             else => {},
         }
     }

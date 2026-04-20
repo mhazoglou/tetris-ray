@@ -5,13 +5,14 @@ const c = @import("c.zig").c;
 
 var font: c.Font = undefined;
 var screenWidth: u16 = 800;
-const MINWIDTH = 400;
 var screenHeight: u16 = 450;
-const MINHEIGHT = 225;
 var item_font_size: u16 = 16;
 var banner_font_size: u16 = 60;
 var spacing: u16 = 4;
 var squareSize: u16 = 20;
+
+const MINWIDTH = 400;
+const MINHEIGHT = 225;
 const FRAMERATE = 60;
 
 const MAXROWS = 22;
@@ -498,7 +499,11 @@ pub const Game = struct{
                 c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 8 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .MusicMenu => |screen| {
+            .StartMenu, 
+            .SettingsMenu, 
+            .PauseMenu,
+            .GameOverMenu, 
+            .MusicMenu => |screen| {
                 const draw_top_y = screenHeight / 4;
                 const draw_left_x = screenWidth / 4;
                 const draw_right_x = 3 * screenWidth / 4;
@@ -525,7 +530,6 @@ pub const Game = struct{
             .ControlsMenu => |screen| {
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
                 c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 4 - banner_dim.y}, banner_font_size, spacing, c.LIGHTGRAY);
-                //var pointer_x: f32 = undefined;
                 for (0..(@intFromEnum(screen.max_position_y) + 1)) |row| {
                     for (0..(@intFromEnum(screen.max_position_x) + 1)) |col| {
                         const field = screen.arr_str[row][col];
