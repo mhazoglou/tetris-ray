@@ -519,23 +519,34 @@ pub const Game = struct{
 
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
                 c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - @as(f32, banner_dim.x) / 2, .y = @as(f32, draw_top_y + block_size / 2 - banner_dim.y / 2 )}, banner_font_size, spacing, c.LIGHTGRAY);
+
                 const shift: f32 = 0.5 * @as(f32, @floatFromInt(@intFromEnum(screen.max_position_y) + 1));
-                inline for (0..4) |i| {
-                    const item_dim = c.MeasureTextEx(font, screen.arr_str[i][0], item_font_size, spacing);
-                    c.DrawTextEx(font, screen.arr_str[i][0], .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - item_dim.x / 2, .y = @as(f32, draw_top_y + 3 * block_size / 2 ) + squareSize * (@as(f32, @floatFromInt(@as(isize, i))) - shift) }, item_font_size, spacing, c.LIGHTGRAY);
+                const len_y: usize = (@intFromEnum(screen.max_position_y) + 1);
+                for (0..len_y) |row| {
+                    const item_dim = c.MeasureTextEx(font, screen.arr_str[row][0], item_font_size, spacing);
+                    const pos_x = @as(f32, @floatFromInt(screenWidth)) / 2 - item_dim.x / 2;
+                    const pos_y = @as(f32, draw_top_y + 3 * block_size / 2 ) + squareSize * (@as(f32, @floatFromInt(row)) - shift);
+                    c.DrawTextEx(font, screen.arr_str[row][0], .{ .x = pos_x, .y = pos_y }, item_font_size, spacing, c.LIGHTGRAY);
+                    if ((@intFromEnum(screen.position_y) == row)) {
+                        const arrow_dim = c.MeasureTextEx(font, ">", item_font_size, spacing);
+                        const arrow_shift_x = 2 * arrow_dim.x;
+                        c.DrawTextEx(font, ">", .{ .x = pos_x - arrow_shift_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                        // c.DrawTextEx(font, "<", .{ .x = pos_x + item_dim.x + arrow_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                    }
                 }
-                c.DrawTextEx(font, ">", .{ .x = @as(f32, screenWidth/2 - 3 * squareSize), .y = @as(f32, draw_top_y + 3 * block_size / 2 ) + squareSize * (@as(f32, @floatFromInt( @intFromEnum(screen.position_y))) - shift)}, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
             .ControlsMenu => |screen| {
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
-                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 4 - banner_dim.y}, banner_font_size, spacing, c.LIGHTGRAY);
-                for (0..(@intFromEnum(screen.max_position_y) + 1)) |row| {
-                    for (0..(@intFromEnum(screen.max_position_x) + 1)) |col| {
+                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y }, banner_font_size, spacing, c.LIGHTGRAY);
+                const len_y = (@intFromEnum(screen.max_position_y) + 1);
+                const len_x = (@intFromEnum(screen.max_position_x) + 1);
+                for (0..len_y) |row| {
+                    for (0..len_x) |col| {
                         const field = screen.arr_str[row][col];
                         const end = field.len;
-                        const pos_x: f32 = (@as(f32, @floatFromInt(col)) + 1) * @divFloor(screenWidth, 4);
-                        const pos_y: f32 = @as(f32, @floatFromInt(screenHeight)) / 2 + banner_dim.y + squareSize * @as(f32, @floatFromInt(row));
+                        const pos_x: f32 = (2 * @as(f32, @floatFromInt(col)) + 1) * @divFloor(screenWidth, 4);
+                        const pos_y: f32 = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y / 2 + squareSize * @as(f32, @floatFromInt(row + len_y / 2));
                         const field_dim = c.MeasureTextEx(font, field, item_font_size, spacing);
                         const fields = @typeInfo(InputMapping).@"struct".fields;
                         var any: bool = false;
@@ -556,6 +567,7 @@ pub const Game = struct{
                         }
                     }
                 }
+                c.DrawFPS(0, 0);
             },
             .RemappingInput => |str| {
                 const remap_text = "Press a key now to remap your selection";
@@ -564,8 +576,9 @@ pub const Game = struct{
                     c.DrawTextEx(font, remap_text, .{ .x = screenWidth / 2 - remap_text_dim.x / 2, .y = screenHeight / 2 - remap_text_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
                     c.DrawTextEx(font, str, .{ .x = screenWidth / 2, .y = screenHeight / 2 + squareSize}, item_font_size, spacing, c.LIGHTGRAY);
                 }
+                c.DrawFPS(0, 0);
             },
-            else => {},
+            else => c.DrawFPS(0, 0),
         }
         c.EndDrawing();
     }
@@ -724,12 +737,22 @@ pub const InputMapping = struct {
 
     fn rebind(self: *InputMapping, field: []const u8) c_int {
         const new_key = c.GetKeyPressed();
+        var old_key: c_int = undefined;
         std.debug.print("{s}", .{GetKeyText(new_key)});
         const fields = @typeInfo(InputMapping).@"struct".fields;
+        const is_clash, const clash_field = self.check_button_clash(new_key);
         if (new_key > 0) {
             inline for (fields) |fld| {
                 if (std.mem.eql(u8, fld.name, field)) {
+                    old_key = @field(self.*, fld.name);
                     @field(self.*, fld.name) = new_key;
+                }
+            }
+            if (is_clash) {
+                inline for (fields) |fld| {
+                    if (std.mem.eql(u8, fld.name, clash_field)) {
+                        @field(self.*, fld.name) = old_key;
+                    }
                 }
             }
         }
@@ -738,6 +761,16 @@ pub const InputMapping = struct {
 
     fn reset_default(self: *InputMapping) void {
         self.* = default_map;
+    }
+
+    fn check_button_clash(self: InputMapping, key: c_int) struct{bool, []const u8} {
+        const fields = @typeInfo(InputMapping).@"struct".fields;
+        inline for (fields) |fld| {
+            if (@field(self, fld.name) == key) {
+                return .{true, fld.name};
+            }
+        }
+        return .{false, ""};
     }
 };
 

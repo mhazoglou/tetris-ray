@@ -19,6 +19,7 @@ const Position = enum(u8) {
     one,
     two,
     three,
+    four,
 };
 
 pub fn MenuScreen() type {
@@ -29,13 +30,13 @@ pub fn MenuScreen() type {
         position_x: Position,
         max_position_y: Position,
         max_position_x: Position,
-        arr_str: [4][4][:0]const u8, 
+        arr_str: [5][5][:0]const u8, 
         banner: [:0]const u8,
 
         pub fn init(
             max_position_y: Position,
             max_position_x: Position,
-            arr_str: [4][4][:0]const u8, 
+            arr_str: [5][5][:0]const u8, 
             banner: [:0]const u8,
         ) Self {
             return .{
@@ -90,55 +91,61 @@ const MusicScreen = MenuScreen();
 
 pub const startScreen = StartScreen.init(.two, .zero, 
     .{ 
-        .{"Marathon"} ++ .{""} ** 3, 
-        .{"Settings"} ++ .{""} ** 3, 
-        .{"Quit"} ++ .{""} ** 3,
-        .{""} ** 4
+        .{"Marathon"} ++ .{""} ** 4, 
+        .{"Settings"} ++ .{""} ** 4, 
+        .{"Quit"} ++ .{""} ** 4,
+        .{""} ** 5,
+        .{""} ** 5,
     }, 
     "TETRIS"
 );
 pub const settingsScreen = SettingsScreen.init(.two, .zero, 
     .{ 
-        .{"Theme"} ++ .{""} ** 3, 
-        .{"Controls"} ++ .{""} ** 3, 
-        .{"Return"} ++ .{""} ** 3,
-        .{""} ** 4
+        .{"Theme"} ++ .{""} ** 4, 
+        .{"Controls"} ++ .{""} ** 4, 
+        .{"Return"} ++ .{""} ** 4,
+        .{""} ** 5,
+        .{""} ** 5,
     }, 
     "SETTINGS"
 );
 pub const pauseScreen = PauseScreen.init(.three, .zero, 
     .{ 
-        .{"Continue"} ++ .{""} ** 3,
-        .{"Settings"} ++ .{""} ** 3,
-        .{"Return"} ++ .{""} ** 3, 
-        .{"Quit"} ++ .{""} ** 3
+        .{"Continue"} ++ .{""} ** 4,
+        .{"Settings"} ++ .{""} ** 4,
+        .{"Return"} ++ .{""} ** 4, 
+        .{"Quit"} ++ .{""} ** 4,
+        .{""} ** 5,
     }, 
     "PAUSED"
 );
 pub const gameOverScreen = GameOverScreen.init(.two, .zero, 
     .{ 
-        .{"Retry"} ++ .{""} ** 3, 
-        .{"Return"} ++ .{""} ** 3, 
-        .{"Quit"} ++ .{""} ** 3,
-        .{""} ** 4
+        .{"Retry"} ++ .{""} ** 4, 
+        .{"Return"} ++ .{""} ** 4, 
+        .{"Quit"} ++ .{""} ** 4,
+        .{""} ** 5,
+        .{""} ** 5,
     }, 
     "GAME OVER"
 );
-pub const controlsScreen = ControlsScreen.init(.two, .two, 
+pub const controlsScreen = ControlsScreen.init(.four, .one, 
     .{
-        .{"left: ", "right: ", "soft drop: "} ++ .{""}, 
-        .{"hard drop: ", "rotate CW: ", "rotate CCW: "} ++ .{""}, 
-        .{"pause: ", "Reset Default", "Return"} ++ .{""}, 
-        .{""} ** 4, 
+        .{"left: ", "right: "} ++ .{""} ** 3, 
+        .{"soft drop: ", "hard drop: "} ++ .{""} ** 3,
+        .{"rotate CW: ", "rotate CCW: "} ++ .{""} ** 3, 
+        .{"pause: ", "exit: "} ++ .{""} ** 3, 
+        .{"Reset Default", "Return"} ++ .{""} ** 3, 
     }, 
     "Controls"
 );
 pub const musicScreen = MusicScreen.init(.three, .one, 
     .{
-        .{"Theme A"} ++ .{""} ** 3, 
-        .{"Theme B"} ++ .{""} ** 3, 
-        .{"Theme C"} ++ .{""} ** 3, 
-        .{"Return"} ++ .{""} ** 3, 
+        .{"Theme A"} ++ .{""} ** 4, 
+        .{"Theme B"} ++ .{""} ** 4, 
+        .{"Theme C"} ++ .{""} ** 4, 
+        .{"Return"} ++ .{""} ** 4, 
+        .{""} ** 5,
     }, 
     "Theme Select"
 );
@@ -222,7 +229,7 @@ pub const Menu = struct {
                         self.settings_return = .{ .StartMenu = startScreen};
                     },
                     .two => self.state = .ExitGame,
-                    .three => unreachable,
+                    else => unreachable,
                 }
             },
             .SettingsMenu => |screen| {
@@ -230,7 +237,7 @@ pub const Menu = struct {
                     .zero => self.state = .{ .MusicMenu = musicScreen },
                     .one => self.state = .{ .ControlsMenu = controlsScreen },
                     .two => self.state = self.settings_return,
-                    .three => unreachable,
+                    else => unreachable,
                 }
             },
             .PauseMenu => |screen| {
@@ -242,6 +249,7 @@ pub const Menu = struct {
                     },
                     .two => self.state = .{ .StartMenu = startScreen},
                     .three => self.state = .ExitGame,
+                    .four => unreachable,
                 }
             },
             .GameOverMenu => |screen| {
@@ -249,15 +257,17 @@ pub const Menu = struct {
                     .zero => self.state = .InGame,
                     .one => self.state = .{ .StartMenu = startScreen},
                     .two => self.state =  .ExitGame,
-                    .three => unreachable,
+                    else => unreachable,
                 }
             },
             .ControlsMenu => |screen| {
+                // brittle to changes because of hardcoded positions
+                // need to refactor in the future
                 const y = @intFromEnum(screen.position_y);
                 const x = @intFromEnum(screen.position_x);
-                if ((y == 2) and (x == 2)) {
+                if ((y == 4) and (x == 1)) {
                     self.state = .{ .SettingsMenu = settingsScreen};
-                } else if ((y == 2) and (x == 1)) {
+                } else if ((y == 4) and (x == 0)) {
                     self.state = .{ .RemappingInput = "" };
                 } else {
                     self.state = .{ .RemappingInput = screen.arr_str[y][x]};
@@ -269,6 +279,7 @@ pub const Menu = struct {
                     .one => self.state = .{ .ChangeMusic = "resources/theme_B.mp3" },
                     .two => self.state = .{ .ChangeMusic = "resources/theme_C.mp3" },
                     .three => self.state = .{ .SettingsMenu = settingsScreen },
+                    .four => unreachable,
                 }
             },
             else => {},
