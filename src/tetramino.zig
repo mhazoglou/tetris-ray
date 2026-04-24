@@ -1,5 +1,5 @@
 const State = @import("game.zig").State;
-const c = @import("c.zig").c;
+const c = @import("c");
 
 pub const Tetramino = union(enum) {
     I: I_piece,

@@ -2,7 +2,6 @@ const std = @import("std");
 const Game = @import("game.zig").Game;
 const InputMapping = @import("game.zig").InputMapping;
 const default_map = @import("game.zig").default_map;
-const c = @import("c.zig").c;
 
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}).init;

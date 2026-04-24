@@ -57,6 +57,16 @@ pub fn build(b: *std.Build) void {
     //
     // If neither case applies to you, feel free to delete the declaration you
     // don't need and to put everything under a single module.
+    const translate_c = b.addTranslateC(.{
+        .root_source_file = b.path("zig-pkg/raylib-6.0.0-whq8uCSwLgWWeF3ec3dbG6Rr36SLFL-s2WJ1Q_2E22Bb/src/raylib.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    // translate_c.link_libc;
+    // if (target.result.os.tag == .emscripten) {
+    //     translate_c.linkSystemLibrary("raylib", .{});
+    // }
+
     const exe = b.addExecutable(.{
         .name = "tetris",
         .root_module = b.createModule(.{
@@ -79,6 +89,7 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "tetris", .module = mod },
+                .{ .name = "c", .module = translate_c.createModule() },
             },
         }),
     });
@@ -89,7 +100,6 @@ pub fn build(b: *std.Build) void {
     });
     const raylib_artifact = raylib_dep.artifact("raylib");
     exe.root_module.linkLibrary(raylib_artifact);
-
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default

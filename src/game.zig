@@ -1,7 +1,7 @@
 const std = @import("std");
+const c = @import("c");
 const Tetramino = @import("tetramino.zig").Tetramino;
 const menu = @import("menu.zig");
-const c = @import("c.zig").c;
 
 var font: c.Font = undefined;
 var screenWidth: u16 = 800;
