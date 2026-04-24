@@ -30,7 +30,7 @@ pub const Game = struct{
     state: State,
     active_tetramino: Tetramino,
     hold_tetramino: ?u8,
-    tetramino_num: u64,
+    tetramino_num: usize,
     tetramino_seq: [7]u8,
     rand: *std.Random,
     time_das: c_longdouble,
