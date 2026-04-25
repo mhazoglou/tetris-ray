@@ -22,7 +22,7 @@
     // original project's identity. Thus it is recommended to leave the comment
     // on the following line intact, so that it shows up in code reviews that
     // modify the field.
-    .fingerprint = 0xdcccf87108c14c3b, // Changing this has security and trust implications.
+    .fingerprint = 0xdcccf871b20f8cbe, // Changing this has security and trust implications.
     // Tracks the earliest Zig version that the package considers to be a
     // supported use case.
     .minimum_zig_version = "0.16.0",
@@ -33,7 +33,7 @@
     // internet connectivity.
     .dependencies = .{
         .raylib = .{
-            .url = "git+https://github.com/raysan5/raylib#932558ca7a54a867f04db3fe4e237ebd887fb8cc",
+            .url = "git+https://github.com/raysan5/raylib#dbc56a87da87d973a9c5baa4e7438a9d20121d28",
             .hash = "raylib-6.0.0-whq8uCSwLgWWeF3ec3dbG6Rr36SLFL-s2WJ1Q_2E22Bb",
         },
     },
