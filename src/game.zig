@@ -42,6 +42,7 @@ pub const Game = struct{
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
     score: u64,
+    combo: ?u64,
     menu: menu.Menu,
     imap: InputMapping,
     running: bool,
@@ -66,6 +67,7 @@ pub const Game = struct{
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
+            .combo = null,
             .menu = menu.Menu.init(),
             .imap = imap,
             .running = true,
@@ -88,6 +90,7 @@ pub const Game = struct{
         self.lines_cleared = 0;
         self.level_sub_one = 0;
         self.score = 0;
+        self.combo = null;
         self.running = true;
         self.just_held = false;
     }
@@ -321,8 +324,18 @@ pub const Game = struct{
         } else if (idx == 4) {
             self.score += 800 * (self.level_sub_one + 1);
         }
-        if ((idx > 0) and (@divFloor(self.lines_cleared, LINESFORLEVELUP) > self.level_sub_one)) {
-            self.increaseLevel();
+        if (idx > 0) {
+            if (self.combo) |*val| {
+                self.score += 50 * (self.level_sub_one + 1) * val.*;
+                val.* += 1;
+            } else {
+                self.combo = 0;
+            }
+            if (@divFloor(self.lines_cleared, LINESFORLEVELUP) > self.level_sub_one) {
+                self.increaseLevel();
+            }
+        } else {
+            self.combo = null;
         }
         std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
         for (0..idx) |i| {
@@ -481,18 +494,19 @@ pub const Game = struct{
                 const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
                 drawPiece(next, &x, &y);
 
-                x = screenWidth / 2 - MAXCOLS * squareSize;
+                x = screenWidth / 2 - MAXCOLS * squareSize - 6 * squareSize;
                 y = screenHeight / 4;
-                c.DrawTextEx(font, "HOLD:", .{ .x = @floatFromInt(x), .y = @floatFromInt(y - squareSize)}, item_font_size, spacing, c.LIGHTGRAY);
+                var x_float: f32 = @floatFromInt(x);
+                var y_float: f32 = @floatFromInt(y);
+                c.DrawTextEx(font, "HOLD:", .{ .x = x_float, .y = y_float - squareSize}, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("COMBO:      % 6i", self.combo orelse 0), .{ .x = x_float, .y = y_float + 7 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
                 if (self.hold_tetramino) |hold| {
                     drawPiece(hold, &x, &y);
                 }
-                y = screenHeight / 4;
+                y_float = screenHeight / 4;
 
-                x = controler;
-                y += 3 * squareSize;
-                const x_float: f32 = @floatFromInt(x);
-                const y_float: f32 = @floatFromInt(y);
+                x_float = @floatFromInt(controler);
+                y_float += 3 * squareSize;
                 c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 4 * squareSize }, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 4 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, item_font_size, spacing, c.LIGHTGRAY);
