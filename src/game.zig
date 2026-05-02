@@ -314,19 +314,24 @@ pub const Game = struct{
                 idx += 1;
             }
         }
-        self.lines_cleared += idx;
-        if (idx == 1) {
-            self.score += 100 * (self.level_sub_one + 1);
-        } else if (idx == 2) {
-            self.score += 300 * (self.level_sub_one + 1);
-        } else if (idx == 3) {
-            self.score += 500 * (self.level_sub_one + 1);
-        } else if (idx == 4) {
-            self.score += 800 * (self.level_sub_one + 1);
+
+        std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
+        for (0..idx) |i| {
+            self.state.shiftRowsDown(row_full_arr[i]);
         }
+
+        self.lines_cleared += idx;
+        // if it's a perfect line clear you earn extra points
+        const score_factor = if (!self.state.isEmpty()) 
+            [_]u64{100, 300, 500, 800}
+        else  
+            [_]u64{900, 1500, 2300, 2800} 
+        ;
+        const score_level = self.level_sub_one + 1;
         if (idx > 0) {
+            self.score += score_factor[idx - 1] * score_level;
             if (self.combo) |*val| {
-                self.score += 50 * (self.level_sub_one + 1) * val.*;
+                self.score += 50 * score_level * val.*;
                 val.* += 1;
             } else {
                 self.combo = 0;
@@ -336,10 +341,6 @@ pub const Game = struct{
             }
         } else {
             self.combo = null;
-        }
-        std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
-        for (0..idx) |i| {
-            self.state.shiftRowsDown(row_full_arr[i]);
         }
     }
 
@@ -735,7 +736,20 @@ pub fn Matrix(rows: usize, columns: usize) type {
             return any_overlap;
         }
 
+        pub fn isEmpty(self: Self) bool {
+            var empty = true;
+            var row: usize = self.rows - 1;
+            var col: usize = 0;
+            while (empty and (row >= 0)) : (row -= 1) {
+                while (empty and (col < self.columns)) : (col += 1) {
+                    empty = !self.array[row][col];
+                }
+            }
+            return empty;
+        }
+
     };
+
 }
 
 pub const InputMapping = struct {
