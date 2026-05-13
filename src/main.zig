@@ -36,8 +36,10 @@ pub fn main() !void {
 
     var prng: std.Random.DefaultPrng = .init(blk: {
         var seed: u64 = undefined;
-        const buf: []u8 = @ptrCast(@alignCast(&seed));
-        _ = std.os.linux.getrandom(buf.ptr, buf.len, 0);
+        const clock: std.Io.Clock = .awake;
+        const now = clock.now(io);
+        const now_micros = now.toMicroseconds();
+        seed = @bitCast(now_micros);
         break :blk seed;
     });
     var rand = prng.random();
