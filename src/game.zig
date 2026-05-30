@@ -109,7 +109,7 @@ pub const Game = struct{
         c.InitAudioDevice();              // Initialize audio device
         var music = c.LoadMusicStream("resources/theme_A.mp3");
         const rot_sound = c.LoadSound("resources/Rotate_Piece_Sound_Effect.mp3");
-        // const lock_sound = c.LoadSound("resources/se_game_landing.wav");
+        const lock_sound = c.LoadSound("resources/se_game_landing.wav");
         const sdrop_sound = c.LoadSound("resources/se_game_softdrop.wav");
         const hold_sound = c.LoadSound("resources/se_game_hold.wav");
         const hdrop_sound = c.LoadSound("resources/se_game_harddrop.wav");
@@ -165,7 +165,7 @@ pub const Game = struct{
                             self.time_drop = c.GetTime();
                             c.PlaySound(sdrop_sound);
                         } else {
-                            self.lockDelay();
+                            self.lockDelay(lock_sound);
                         }
                     }
                     if (c.IsKeyPressed(self.imap.@"hard drop")) {
@@ -175,6 +175,7 @@ pub const Game = struct{
                             cells += 1;
                         } else {
                             self.lockTetramino();
+                            c.PlaySound(lock_sound);
                             self.running = !self.spawnTetramino();
                         }
                         self.score += 2 * cells;
@@ -212,13 +213,13 @@ pub const Game = struct{
                         if (!self.downBlocked()) {
                             self.active_tetramino.move_down();
                         } else {
-                            self.lockDelay();
+                            self.lockDelay(lock_sound);
                         }
                         self.time_drop = c.GetTime();
                     }
 
                     if (self.in_lock_delay and self.downBlocked()) {
-                        self.lockDelay();
+                        self.lockDelay(lock_sound);
                     } else {
                         self.in_lock_delay = false;
                     }
@@ -268,7 +269,7 @@ pub const Game = struct{
         }
     }
 
-    fn lockDelay(self: *Game) void {
+    fn lockDelay(self: *Game, lock_sound: c.Sound) void {
         if (!self.in_lock_delay) {
             self.in_lock_delay = true;
             self.time_lock = c.GetTime();
@@ -276,6 +277,7 @@ pub const Game = struct{
             const lock_elapsed = (c.GetTime() - self.time_lock) >= LOCKDELAY;
             if (lock_elapsed) {
                 self.lockTetramino();
+                c.PlaySound(lock_sound);
                 self.running = !self.spawnTetramino();
                 self.in_lock_delay = false;
             }
