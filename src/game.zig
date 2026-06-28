@@ -51,7 +51,11 @@ pub const Game = struct{
     running: bool,
     just_held: bool,
     
-    pub fn init(rand: *std.Random, imap: InputMapping) Game {
+    pub fn init(
+        rand: *std.Random, 
+        imap: InputMapping, 
+        high_score: HighScore
+    ) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
         rand.shuffle(u8, &buffer);
         return .{
@@ -73,7 +77,7 @@ pub const Game = struct{
             .combo = null,
             .menu = menu.Menu.init(),
             .imap = imap,
-            .high_score = empty_high_score,
+            .high_score = high_score,
             .running = true,
             .just_held = false,
         };
@@ -288,6 +292,7 @@ pub const Game = struct{
                         if (c.IsKeyReleased(c.KEY_ENTER) and (letterCount == NAMELENGTH)) {
                             break: entry;
                         }
+                        c.UpdateMusicStream(music);
                         self.drawGame();
                     }
                     self.high_score.addNewScore(idx, self.score, enter_name);
@@ -642,7 +647,7 @@ pub const Game = struct{
                         const pos_y: f32 = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y / 2 + squareSize * @as(f32, @floatFromInt(row + len_y / 2));
                         const rank_dim = c.MeasureTextEx(font, rank, item_font_size, spacing);
                         const name = self.high_score.top_ten_names[row + col * len_y];
-                        const name_dim = c.MeasureTextEx(font, &name, item_font_size, spacing);
+                        const name_dim = c.MeasureTextEx(font, name[0..NAMELENGTH], item_font_size, spacing);
                         const score = self.high_score.top_ten_scores[row + col * len_y];
                         c.DrawTextEx(font, &name, .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                         c.DrawTextEx(font, c.TextFormat("      % 6i", score), .{ .x = pos_x + name_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
@@ -909,10 +914,9 @@ const Rotation = enum {
     CCW,
 };
 
-const HighScore = struct {
+pub const HighScore = extern struct {
     top_ten_scores: [10]u64,
     top_ten_names: [10][NAMELENGTH:0]u8,
-
 
     fn addNewScore(self: *HighScore, index: usize, 
                    high_score: u64, name: [NAMELENGTH:0]u8) void {
@@ -939,11 +943,6 @@ const HighScore = struct {
         }
     }
     
-    fn enterName() ?u8 {
-        const new_key = c.GetCharPressed();
-        return if (new_key > 0) @as(u8, @intCast(new_key)) else null;
-    }
-
 };
 
 pub const empty_high_score: HighScore = .{
