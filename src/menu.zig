@@ -7,10 +7,12 @@ const MenuState = union(enum) {
     MusicMenu: MusicScreen,
     ControlsMenu: ControlsScreen,
     InGame,
-    PauseMenu: PauseScreen,
+    PauseMenu: PauseScreen, 
     GameOverMenu: GameOverScreen,
+    HighScoreMenu: HighScoreScreen,
     RemappingInput: [:0]const u8,
     ChangeMusic: [:0]const u8,
+    EnterName: usize,
     ExitGame,
 };
 
@@ -88,13 +90,14 @@ const PauseScreen = MenuScreen();
 const GameOverScreen = MenuScreen();
 const ControlsScreen = MenuScreen();
 const MusicScreen = MenuScreen();
+const HighScoreScreen = MenuScreen();
 
-pub const startScreen = StartScreen.init(.two, .zero, 
+pub const startScreen = StartScreen.init(.three, .zero, 
     .{ 
         .{"Marathon"} ++ .{""} ** 4, 
         .{"Settings"} ++ .{""} ** 4, 
+        .{"High Score"} ++ .{""} ** 4,
         .{"Quit"} ++ .{""} ** 4,
-        .{""} ** 5,
         .{""} ** 5,
     }, 
     "TETRIS"
@@ -148,6 +151,16 @@ pub const musicScreen = MusicScreen.init(.three, .one,
         .{""} ** 5,
     }, 
     "Theme Select"
+);
+pub const highScoreScreen = HighScoreScreen.init(.four, .one,
+    .{
+        .{"1st: ", "6th: "} ++ .{""} ** 3,
+        .{"2nd: ", "7th: "} ++ .{""} ** 3,
+        .{"3rd: ", "8th: "} ++ .{""} ** 3,
+        .{"4th: ", "9th: "} ++ .{""} ** 3,
+        .{"5th: ", "10th: "} ++ .{""} ** 3,
+    },
+    "High Score"
 );
 
 pub const Menu = struct {
@@ -228,7 +241,8 @@ pub const Menu = struct {
                         self.state = .{ .SettingsMenu = settingsScreen};
                         self.settings_return = .{ .StartMenu = startScreen};
                     },
-                    .two => self.state = .ExitGame,
+                    .two => self.state = .{ .HighScoreMenu = highScoreScreen},
+                    .three => self.state = .ExitGame,
                     else => unreachable,
                 }
             },
@@ -239,6 +253,12 @@ pub const Menu = struct {
                     .two => self.state = self.settings_return,
                     else => unreachable,
                 }
+            },
+            .HighScoreMenu => |screen| {
+                _ = screen;
+                // const y = @intFromEnum(screen.position_y);
+                // const x = @intFromEnum(screen.position_x);
+                self.state = .{ .StartMenu = startScreen};
             },
             .PauseMenu => |screen| {
                 switch (screen.position_y) {

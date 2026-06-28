@@ -10,6 +10,7 @@ var item_font_size: u16 = 16;
 var banner_font_size: u16 = 60;
 var spacing: u16 = 4;
 var squareSize: u16 = 20;
+var enter_name: [NAMELENGTH:0]u8 = ("_" ** NAMELENGTH).*;
 
 const MINWIDTH = 400;
 const MINHEIGHT = 225;
@@ -22,6 +23,7 @@ const DAS = 10.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 10 frames o
 const DASART = 2.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 2 frames auto repeat rate
 const DART = 3.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 3 frames drop auto repeat rate
 const LINESFORLEVELUP = 10;
+const NAMELENGTH = 3;
 
 pub const State = Matrix(MAXROWS, MAXCOLS);
 
@@ -45,6 +47,7 @@ pub const Game = struct{
     combo: ?u64,
     menu: menu.Menu,
     imap: InputMapping,
+    high_score: HighScore,
     running: bool,
     just_held: bool,
     
@@ -70,6 +73,7 @@ pub const Game = struct{
             .combo = null,
             .menu = menu.Menu.init(),
             .imap = imap,
+            .high_score = empty_high_score,
             .running = true,
             .just_held = false,
         };
@@ -225,8 +229,13 @@ pub const Game = struct{
                     }
 
                     if (!self.running) {
-                        self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
-                        self.reset();
+                        const opt_i = self.high_score.checkHighScore(self.score);
+                        if (opt_i) |idx| {
+                            self.menu.state = .{ .EnterName = idx };
+                        } else {
+                            self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
+                            self.reset();
+                        }
                     }
 
                     self.drawGame();
@@ -253,6 +262,38 @@ pub const Game = struct{
                     c.PlayMusicStream(music);
                     c.UpdateMusicStream(music);
                     self.menu.state = .{ .MusicMenu = menu.musicScreen };
+                    continue :loop self.menu.state;
+                },
+                .EnterName => |idx| {
+                    c.UpdateMusicStream(music);
+                    self.drawGame();
+                    var letterCount: usize = 0;
+                    var key = c.GetCharPressed();
+
+                    entry: while (letterCount <= NAMELENGTH) {
+                        if ((key >= 32) and (key <= 125)) {
+                            if (letterCount != NAMELENGTH) {
+                                enter_name[letterCount] = @as(u8, @intCast(key));
+                                letterCount += 1;
+                            }
+                        }
+
+                        key = c.GetCharPressed();  // Check next character in the queue
+
+                        if (c.IsKeyPressed(c.KEY_BACKSPACE) and (letterCount > 0)) {
+                            letterCount -= 1;
+                            enter_name[letterCount] = '_'; 
+                        }
+
+                        if (c.IsKeyReleased(c.KEY_ENTER) and (letterCount == NAMELENGTH)) {
+                            break: entry;
+                        }
+                        self.drawGame();
+                    }
+                    self.high_score.addNewScore(idx, self.score, enter_name);
+                    enter_name = ("_" ** NAMELENGTH).*;
+                    self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
+                    self.reset();
                     continue :loop self.menu.state;
                 },
                 else => {
@@ -442,7 +483,7 @@ pub const Game = struct{
 
     pub fn drawGame(self: Game) void {
         if (c.IsWindowResized()) {
-            const scale: f32 = min(
+            const scale: f32 = @min(
                 @as(f32, @floatFromInt(c.GetScreenWidth())) / @as(f32, @floatFromInt(screenWidth)), 
                 @as(f32, @floatFromInt(c.GetScreenHeight())) / @as(f32, @floatFromInt(screenHeight)),
             );
@@ -586,6 +627,37 @@ pub const Game = struct{
                 }
                 c.DrawFPS(0, 0);
             },
+            .HighScoreMenu => |screen| {
+                const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
+                const banner_pos: c.Vector2 = .{ 
+                    .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, 
+                    .y = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y };
+                c.DrawTextEx(font, screen.banner, banner_pos, banner_font_size, spacing, c.LIGHTGRAY);
+                const len_y = (@intFromEnum(screen.max_position_y) + 1);
+                const len_x = (@intFromEnum(screen.max_position_x) + 1);
+                for (0..len_y) |row| {
+                    for (0..len_x) |col| {
+                        const rank = screen.arr_str[row][col];
+                        const pos_x: f32 = (2 * @as(f32, @floatFromInt(col)) + 1) * @divFloor(screenWidth, 4);
+                        const pos_y: f32 = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y / 2 + squareSize * @as(f32, @floatFromInt(row + len_y / 2));
+                        const rank_dim = c.MeasureTextEx(font, rank, item_font_size, spacing);
+                        const name = self.high_score.top_ten_names[row + col * len_y];
+                        const name_dim = c.MeasureTextEx(font, &name, item_font_size, spacing);
+                        const score = self.high_score.top_ten_scores[row + col * len_y];
+                        c.DrawTextEx(font, &name, .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                        c.DrawTextEx(font, c.TextFormat("      % 6i", score), .{ .x = pos_x + name_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                        c.DrawTextEx(font, rank, .{ .x = pos_x - rank_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                    }
+                }
+                const return_txt = "Press Enter to Return.";
+                const return_dim = c.MeasureTextEx(font, return_txt, item_font_size, spacing);
+                const return_pos: c.Vector2 = .{ 
+                    .x = @as(f32, @floatFromInt(screenWidth)) / 2 - return_dim.x / 2, 
+                    .y = @as(f32, @floatFromInt(screenHeight)) / 2 + 8 * return_dim.y,
+                };
+                c.DrawTextEx(font, return_txt, return_pos, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawFPS(0, 0);
+            },
             .RemappingInput => |str| {
                 const remap_text = "Press a key now to remap your selection";
                 const remap_text_dim = c.MeasureTextEx(font, remap_text, item_font_size, spacing);
@@ -593,6 +665,22 @@ pub const Game = struct{
                     c.DrawTextEx(font, remap_text, .{ .x = screenWidth / 2 - remap_text_dim.x / 2, .y = screenHeight / 2 - remap_text_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
                     c.DrawTextEx(font, str, .{ .x = screenWidth / 2, .y = screenHeight / 2 + squareSize}, item_font_size, spacing, c.LIGHTGRAY);
                 }
+                c.DrawFPS(0, 0);
+            },
+            .EnterName => |idx| {
+                _ = idx;
+                var input_char: c_int = 0;
+                for (enter_name) |char| {
+                    if (char != '_') {
+                        input_char += 1;
+                    }
+                }
+                const txt = "Congratulations\nNew High Score\nEnter your name:";
+                const txt_dim = c.MeasureTextEx(font, txt, item_font_size, spacing);
+                c.DrawTextEx(font, txt, .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 - txt_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("Score:      % 6i", self.score), .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 + txt_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, &enter_name, .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 + txt_dim.y }, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("INPUT CHARS: %i/%i", input_char, @as(c_int, NAMELENGTH)), .{ .x = 315, .y = 250 }, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawFPS(0, 0);
             },
             else => c.DrawFPS(0, 0),
@@ -770,7 +858,7 @@ pub const InputMapping = struct {
         var old_key: c_int = undefined;
         std.debug.print("{s}", .{GetKeyText(new_key)});
         const fields = @typeInfo(InputMapping).@"struct".fields;
-        const is_clash, const clash_field = self.check_button_clash(new_key);
+        const is_clash, const clash_field = self.checkButtonClash(new_key);
         if (new_key > 0) {
             inline for (fields) |fld| {
                 if (std.mem.eql(u8, fld.name, field)) {
@@ -789,11 +877,11 @@ pub const InputMapping = struct {
         return new_key;
     }
 
-    fn reset_default(self: *InputMapping) void {
+    fn resetDefault(self: *InputMapping) void {
         self.* = default_map;
     }
 
-    fn check_button_clash(self: InputMapping, key: c_int) struct{bool, []const u8} {
+    fn checkButtonClash(self: InputMapping, key: c_int) struct{bool, []const u8} {
         const fields = @typeInfo(InputMapping).@"struct".fields;
         inline for (fields) |fld| {
             if (@field(self, fld.name) == key) {
@@ -821,6 +909,47 @@ const Rotation = enum {
     CCW,
 };
 
+const HighScore = struct {
+    top_ten_scores: [10]u64,
+    top_ten_names: [10][NAMELENGTH:0]u8,
+
+
+    fn addNewScore(self: *HighScore, index: usize, 
+                   high_score: u64, name: [NAMELENGTH:0]u8) void {
+        const score_len = self.top_ten_scores.len;
+        for (0..(score_len - index)) |idx| {
+            // 0..10 10 - 9 -2
+            if (score_len == idx + 1) {
+                break;
+            }
+            self.top_ten_scores[score_len - idx - 1] = self.top_ten_scores[score_len - idx - 2];
+            self.top_ten_names[score_len - idx - 1] = self.top_ten_names[score_len - idx - 2];
+        }
+        self.top_ten_scores[index] = high_score;
+        self.top_ten_names[index] = name;
+    }
+
+    fn checkHighScore(self: HighScore, new_score: u64) ?usize {
+        for (self.top_ten_scores, 0..) |score, i| {
+            if (new_score > score) {
+                return i;
+            }
+        } else {
+            return null;
+        }
+    }
+    
+    fn enterName() ?u8 {
+        const new_key = c.GetCharPressed();
+        return if (new_key > 0) @as(u8, @intCast(new_key)) else null;
+    }
+
+};
+
+pub const empty_high_score: HighScore = .{
+    .top_ten_scores = .{0} ** 10,
+    .top_ten_names = .{("a" ** NAMELENGTH).*} ** 10,
+};
 
 pub fn GetKeyText(key: c_int) [:0]const u8 {
     return switch (key) {
@@ -931,12 +1060,4 @@ pub fn GetKeyText(key: c_int) [:0]const u8 {
         c.KEY_KP_EQUAL        => "KPEQU",      // Key: Keypad =
         else => "",
     };
-}
-
-fn max(x: anytype, y: anytype) @TypeOf(x) {
-    return if (x > y) x else y;
-}
-
-fn min(x: anytype, y: anytype) @TypeOf(x) {
-    return if (x < y) x else y;
 }
