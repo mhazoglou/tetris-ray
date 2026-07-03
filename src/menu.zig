@@ -1,4 +1,6 @@
 const std = @import("std");
+const Game = @import("game.zig").Game;
+const EXITTIME = @import("game.zig").EXITTIME;
 const c = @import("c");
 
 const MenuState = union(enum) {
@@ -166,32 +168,40 @@ pub const highScoreScreen = HighScoreScreen.init(.four, .one,
 pub const Menu = struct {
     state: MenuState,
     settings_return: MenuState,
+    timer_exit: c_longdouble,
 
     pub fn init() Menu {
         return .{
             .state = .{ .StartMenu = startScreen },
             .settings_return = .{ .StartMenu = startScreen },
+            .timer_exit = 0.0,
         };
     }
 
-    pub fn menu_loop(self: *Menu) void {
+    pub fn menu_loop(self: *Menu, game: Game) void {
         if (c.IsKeyPressed(c.KEY_DOWN)) {
             self.cycleDown();
         }
         if (c.IsKeyPressed(c.KEY_UP)) {
             self.cycleUp();
         }
-        if (c.IsKeyPressed(c.KEY_RIGHT)) {
+        if (c.IsKeyPressed(game.imap.right)) {
             self.cycleRight();
         }
-        if (c.IsKeyPressed(c.KEY_LEFT)) {
+        if (c.IsKeyPressed(game.imap.left)) {
             self.cycleLeft();
         }
         if (c.IsKeyPressed(c.KEY_ENTER)) {
             self.selected();
         }
-        if (c.IsKeyPressed(c.KEY_ESCAPE)) {
-            self.state = .ExitGame;
+        const exit_elapsed = self.timer_exit >= EXITTIME;
+        if (c.IsKeyUp(game.imap.exit)) {
+            self.timer_exit = 0.0;
+        } else {
+            self.timer_exit += c.GetFrameTime();
+            if (exit_elapsed) {
+                self.state = .ExitGame;
+            }
         }
     }
 
