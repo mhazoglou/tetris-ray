@@ -32,6 +32,7 @@ pub const Game = struct{
 
     state: State,
     active_tetramino: Tetramino,
+    // ghost_tetramino: Tetramino,
     hold_tetramino: ?u8,
     tetramino_num: usize,
     tetramino_seq: [7]u8,
@@ -43,6 +44,8 @@ pub const Game = struct{
     timer_drop: c_longdouble,
     timer_exit: c_longdouble,
     in_lock_delay: bool,
+    is_t_spin: bool,
+    is_t_spin_mini: bool,
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
     score: u64,
@@ -74,6 +77,8 @@ pub const Game = struct{
             .timer_drop = 0.0,
             .timer_exit = 0.0,
             .in_lock_delay = false,
+            .is_t_spin = false,
+            .is_t_spin_mini = false,
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
@@ -99,6 +104,8 @@ pub const Game = struct{
         self.timer_drop = 0.0;
         self.timer_exit = 0.0;
         self.in_lock_delay = false;
+        self.is_t_spin = false;
+        self.is_t_spin_mini = false;
         self.lines_cleared = 0;
         self.level_sub_one = 0;
         self.score = 0;
@@ -145,11 +152,15 @@ pub const Game = struct{
                         self.active_tetramino.move_left();
                         self.timer_das = 0;
                         self.timer_ar = 0;
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyPressed(self.imap.right) and !self.rightBlocked()) {
                         self.active_tetramino.move_right();
                         self.timer_das = 0;
                         self.timer_ar = 0;
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyDown(self.imap.left) and !self.leftBlocked()) {
                         self.timer_das += c.GetFrameTime();
@@ -162,6 +173,8 @@ pub const Game = struct{
                             self.active_tetramino.move_left();
                             self.timer_ar = 0;
                         }
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyDown(self.imap.right) and !self.rightBlocked()) {
                         self.timer_das += c.GetFrameTime();
@@ -174,6 +187,8 @@ pub const Game = struct{
                             self.active_tetramino.move_right();
                             self.timer_ar = 0;
                         }
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyDown(self.imap.@"soft drop")) {
                         self.timer_drop += c.GetFrameTime();
@@ -185,6 +200,8 @@ pub const Game = struct{
                         } else {
                             self.lockDelay(lock_sound);
                         }
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyPressed(self.imap.@"hard drop")) {
                         var cells: u64 = 0; 
@@ -198,10 +215,14 @@ pub const Game = struct{
                         }
                         self.score += 2 * cells;
                         c.PlaySound(hdrop_sound);
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyPressed(self.imap.hold)) {
                         self.holdPiece();
                         c.PlaySound(hold_sound);
+                        self.is_t_spin = false;
+                        self.is_t_spin_mini = false;
                     }
                     if (c.IsKeyPressed(self.imap.@"rotate CW")) {
                         const opt_wall_kick = self.superRotationSystem(.CW);
@@ -209,6 +230,8 @@ pub const Game = struct{
                             self.active_tetramino.rot_CW(wall_kick);
                             c.PlaySound(rot_sound);
                             self.in_lock_delay = false;
+                            self.is_t_spin = self.isTSpin(wall_kick);
+                            self.is_t_spin_mini = self.isTSpinMini(wall_kick);
                         }
                     }
                     if (c.IsKeyPressed(self.imap.@"rotate CCW")) {
@@ -217,10 +240,12 @@ pub const Game = struct{
                             self.active_tetramino.rot_CCW(wall_kick);
                             c.PlaySound(rot_sound);
                             self.in_lock_delay = false;
+                            self.is_t_spin = self.isTSpin(wall_kick);
+                            self.is_t_spin_mini = self.isTSpinMini(wall_kick);
                         }
                     }
                     if (c.IsKeyPressed(self.imap.pause)) {
-                            self.menu.state = .{ .PauseMenu = menu.pauseScreen };
+                        self.menu.state = .{ .PauseMenu = menu.pauseScreen };
                     }
 
                     const exit_elapsed = self.timer_exit >= EXITTIME;
@@ -336,9 +361,10 @@ pub const Game = struct{
     fn lockDelay(self: *Game, lock_sound: c.Sound) void {
         if (!self.in_lock_delay) {
             self.in_lock_delay = true;
-            self.timer_lock = c.GetTime();
+            self.timer_lock = 0;
         } else {
-            const lock_elapsed = (c.GetTime() - self.timer_lock) >= LOCKDELAY;
+            self.timer_lock += c.GetFrameTime();
+            const lock_elapsed = self.timer_lock >= LOCKDELAY;
             if (lock_elapsed) {
                 self.lockTetramino();
                 c.PlaySound(lock_sound);
@@ -388,11 +414,18 @@ pub const Game = struct{
 
         self.lines_cleared += idx;
         // if it's a perfect line clear you earn extra points
-        const score_factor = if (!self.state.isEmpty()) 
-            [_]u64{100, 300, 500, 800}
-        else  
-            [_]u64{900, 1500, 2300, 2800} 
-        ;
+        var score_factor: [4]u64 = undefined;
+        if (self.is_t_spin) {
+            score_factor = [_]u64{800, 1200, 1600, 0};
+        } else if (self.is_t_spin_mini) {
+            score_factor = [_]u64{200, 400, 0, 0};
+        } else {
+            score_factor = [_]u64{100, 300, 500, 800};
+        }
+        const perfect_clear_bonus = [_]u64{800, 1200, 1800, 2000};
+        for (perfect_clear_bonus, 0..) |bonus, i| {
+            score_factor[i] += bonus;
+        }
         const score_level = self.level_sub_one + 1;
         if (idx > 0) {
             self.score += score_factor[idx - 1] * score_level;
@@ -407,7 +440,15 @@ pub const Game = struct{
             }
         } else {
             self.combo = null;
+            if (self.is_t_spin_mini) {
+                self.score += 100 * score_level;
+            }
+            if (self.is_t_spin) {
+                self.score += 400 * score_level;
+            }
         }
+        self.is_t_spin = false;
+        self.is_t_spin_mini = false;
     }
 
     fn increaseLevel(self: *Game) void {
@@ -504,6 +545,107 @@ pub const Game = struct{
         self.just_held = true;
     }
 
+    fn isTSpin(self: Game, wall_kick: [2]isize) bool {
+        // need logic for 5th SRS kick
+        switch (self.active_tetramino) {
+            .T => |piece| {
+                // if the wall kick if has the offset from the fifth set
+                if ((@abs(wall_kick[0]) == 2) and (@abs(wall_kick[1]) == 1)) {
+                    return true;
+                }
+                const row = piece.row;
+                const col = piece.col;
+                const orientation = piece.orientation;
+
+                const ll_diag = if ((row + 1 > MAXROWS) or (col - 1) < 0) true else self.state.array[
+                    @as(usize, @intCast(row + 1))
+                ][
+                    @as(usize, @intCast(col - 1))
+                ];
+
+                const lr_diag = if ((row + 1 > MAXROWS) or (col + 1) > MAXCOLS) true else self.state.array[
+                    @as(usize, @intCast(row + 1))
+                ][
+                    @as(usize, @intCast(col + 1))
+                ];
+                const bottom_diags = ll_diag and lr_diag; 
+                if (!bottom_diags) return false;
+                
+
+                const ul_diag = if ((col - 1) < 0) true else self.state.array[
+                    @as(usize, @intCast(row - 1))
+                ][
+                    @as(usize, @intCast(col - 1))
+                ];
+
+                const ur_diag = if ((col + 1) > MAXCOLS) true else self.state.array[
+                    @as(usize, @intCast(row - 1))
+                ][
+                    @as(usize, @intCast(col + 1))
+                ];
+
+                const three_diags = bottom_diags and (ul_diag or ur_diag);
+                return switch (orientation) {
+                    .Spawn => ul_diag and ur_diag and (ll_diag or lr_diag),
+                    .Clockwise => bottom_diags and ur_diag,
+                    .CounterClockwise => bottom_diags and ul_diag,
+                    .DoubleRotated => three_diags,
+                };
+            },
+            else => return false,
+        }
+    }
+
+    fn isTSpinMini(self: Game, wall_kick: [2]isize) bool {
+        switch (self.active_tetramino) {
+            .T => |piece| {
+                // if the wall kick if has the offset from the fifth set
+                if ((@abs(wall_kick[0]) == 2) and (@abs(wall_kick[1]) == 1)) {
+                    return false;
+                }
+                const row = piece.row;
+                const col = piece.col;
+                const orientation = piece.orientation;
+
+                const ll_diag = if ((row + 1 > MAXROWS) or (col - 1) < 0) true else self.state.array[
+                    @as(usize, @intCast(row + 1))
+                ][
+                    @as(usize, @intCast(col - 1))
+                ];
+
+                const lr_diag = if ((row + 1 > MAXROWS) or (col + 1) > MAXCOLS) true else self.state.array[
+                    @as(usize, @intCast(row + 1))
+                ][
+                    @as(usize, @intCast(col + 1))
+                ];
+                const bottom_diags = ll_diag and lr_diag; 
+                if (!bottom_diags) return false;
+                
+
+                const ul_diag = if ((col - 1) < 0) true else self.state.array[
+                    @as(usize, @intCast(row - 1))
+                ][
+                    @as(usize, @intCast(col - 1))
+                ];
+
+                const ur_diag = if ((col + 1) > MAXCOLS) true else self.state.array[
+                    @as(usize, @intCast(row - 1))
+                ][
+                    @as(usize, @intCast(col + 1))
+                ];
+
+                const three_diags = bottom_diags and (ul_diag or ur_diag);
+                return switch (orientation) {
+                    .Spawn => three_diags,
+                    .Clockwise => bottom_diags and ul_diag,
+                    .CounterClockwise => bottom_diags and ur_diag,
+                    .DoubleRotated => ul_diag and ur_diag and (ll_diag or lr_diag),
+                };
+            },
+            else => return false,
+        }
+    }
+
     pub fn drawGame(self: Game) void {
         if (c.IsWindowResized()) {
             const scale: f32 = @min(
@@ -550,6 +692,12 @@ pub const Game = struct{
                             c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
                         } else if (active_tetramino.isOccupied(row, col)) {
                             c.DrawRectangle(x, y, squareSize, squareSize, active_tetramino.get_color());
+                            // c.DrawRectangle(
+                            //     x + @divTrunc(squareSize, 5), 
+                            //     y + @divTrunc(squareSize, 5), 
+                            //     3 * @divTrunc(squareSize, 5), 3 * @divTrunc(squareSize, 5),
+                            //     c.BLACK//active_tetramino.get_color()
+                            // );
                         }
                         c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
                         c.DrawLine(x, y, x, y + squareSize, c.LIGHTGRAY );
