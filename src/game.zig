@@ -687,12 +687,29 @@ pub const Game = struct{
 
                 const controller: c_int = x;
 
+                var blocks_pos = active_tetramino.get_blocks();
+                while (!state.checkOverlap(blocks_pos)) {
+                    for (&blocks_pos) |*block| {
+                        block.*[0] += 1;
+                    }
+                }
+                for (&blocks_pos) |*block| {
+                    block.*[0] -= 1;
+                }
+                const tetra_color = active_tetramino.get_color();
                 for (2..MAXROWS) |row| {
                     for (0..state.columns) |col| {
                         if (state.array[row][col]) {
                             c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
                         } else if (active_tetramino.isOccupied(row, col)) {
-                            c.DrawRectangle(x, y, squareSize, squareSize, active_tetramino.get_color());
+                            c.DrawRectangle(x, y, squareSize, squareSize, tetra_color);
+                        }
+                        for (blocks_pos) |block| {
+                            if ((block[0] == row) and (block[1] == col)) {
+                                c.DrawRectangle(
+                                    x, y, squareSize, squareSize, c.Fade(tetra_color, 0.3)
+                                );
+                            }
                         }
                         c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
                         c.DrawLine(x, y, x, y + squareSize, c.LIGHTGRAY );
