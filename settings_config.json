@@ -1,0 +1,17 @@
+{
+  "imap": {
+    "left": 263,
+    "right": 262,
+    "soft drop": 264,
+    "hard drop": 32,
+    "hold": 340,
+    "rotate CW": 265,
+    "rotate CCW": 341,
+    "pause": 257,
+    "exit": 256
+  },
+  "ghost_piece": true,
+  "master_volume": 1,
+  "music_volume": 1,
+  "sfx_volume": 1
+}

@@ -7,11 +7,14 @@ const MenuState = union(enum) {
     StartMenu: StartScreen,
     SettingsMenu: SettingsScreen,
     MusicMenu: MusicScreen,
+    ThemeSelectMenu: ThemeSelectScreen,
     ControlsMenu: ControlsScreen,
     InGame,
     PauseMenu: PauseScreen, 
     GameOverMenu: GameOverScreen,
     HighScoreMenu: HighScoreScreen,
+    ToggleGhost,
+    ChangeVolume: f32,
     RemappingInput: [:0]const u8,
     ChangeMusic: [:0]const u8,
     EnterName: usize,
@@ -92,6 +95,7 @@ const PauseScreen = MenuScreen();
 const GameOverScreen = MenuScreen();
 const ControlsScreen = MenuScreen();
 const MusicScreen = MenuScreen();
+const ThemeSelectScreen = MenuScreen();
 const HighScoreScreen = MenuScreen();
 
 pub const startScreen = StartScreen.init(.three, .zero, 
@@ -104,12 +108,12 @@ pub const startScreen = StartScreen.init(.three, .zero,
     }, 
     "TETRIS"
 );
-pub const settingsScreen = SettingsScreen.init(.two, .zero, 
+pub const settingsScreen = SettingsScreen.init(.three, .zero, 
     .{ 
-        .{"Theme"} ++ .{""} ** 4, 
+        .{"Music"} ++ .{""} ** 4, 
         .{"Controls"} ++ .{""} ** 4, 
+        .{"Toggle Ghost"} ++ .{""} ** 4,
         .{"Return"} ++ .{""} ** 4,
-        .{""} ** 5,
         .{""} ** 5,
     }, 
     "SETTINGS"
@@ -144,7 +148,17 @@ pub const controlsScreen = ControlsScreen.init(.four, .one,
     }, 
     "Controls"
 );
-pub const musicScreen = MusicScreen.init(.three, .one, 
+pub const musicScreen = MusicScreen.init(.four, .zero,
+    .{
+        .{"Theme Select"} ++ .{""} ** 4,
+        .{"Master Volume: "} ++ .{""} ** 4,
+        .{"Music Volume: "} ++ .{""} ** 4,
+        .{"Sound Effects Volume: "} ++ .{""} ** 4,
+        .{"Return"} ++ .{""} ** 4, 
+    },
+    "Music"
+);
+pub const themeSelectScreen = ThemeSelectScreen.init(.three, .zero, 
     .{
         .{"Theme A"} ++ .{""} ** 4, 
         .{"Theme B"} ++ .{""} ** 4, 
@@ -168,7 +182,7 @@ pub const highScoreScreen = HighScoreScreen.init(.four, .one,
 pub const Menu = struct {
     state: MenuState,
     settings_return: MenuState,
-    timer_exit: c_longdouble,
+    timer_exit: f64,
 
     pub fn init() Menu {
         return .{
@@ -185,17 +199,17 @@ pub const Menu = struct {
         if (c.IsKeyPressed(c.KEY_UP)) {
             self.cycleUp();
         }
-        if (c.IsKeyPressed(game.imap.right)) {
+        if (c.IsKeyPressed(game.settings.imap.right)) {
             self.cycleRight();
         }
-        if (c.IsKeyPressed(game.imap.left)) {
+        if (c.IsKeyPressed(game.settings.imap.left)) {
             self.cycleLeft();
         }
         if (c.IsKeyPressed(c.KEY_ENTER)) {
             self.selected();
         }
         const exit_elapsed = self.timer_exit >= EXITTIME;
-        if (c.IsKeyUp(game.imap.exit)) {
+        if (c.IsKeyUp(game.settings.imap.exit)) {
             self.timer_exit = 0.0;
         } else {
             self.timer_exit += c.GetFrameTime();
@@ -207,7 +221,7 @@ pub const Menu = struct {
 
     pub fn cycleUp(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleUp();
             },
             else => {},
@@ -216,7 +230,7 @@ pub const Menu = struct {
 
     pub fn cycleDown(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleDown();
             },
             else => {}
@@ -225,7 +239,7 @@ pub const Menu = struct {
 
     pub fn cycleLeft(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleLeft();
             },
             else => {},
@@ -234,7 +248,7 @@ pub const Menu = struct {
 
     pub fn cycleRight(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleRight();
             },
             else => {}
@@ -260,7 +274,8 @@ pub const Menu = struct {
                 switch (screen.position_y) {
                     .zero => self.state = .{ .MusicMenu = musicScreen },
                     .one => self.state = .{ .ControlsMenu = controlsScreen },
-                    .two => self.state = self.settings_return,
+                    .two => self.state = .ToggleGhost,
+                    .three => self.state = self.settings_return,
                     else => unreachable,
                 }
             },
@@ -305,10 +320,20 @@ pub const Menu = struct {
             },
             .MusicMenu => |screen| {
                 switch (screen.position_y) {
+                    .zero => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
+                    // .one => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
+                    // .two => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
+                    // .three => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
+                    .four => self.state = .{ .SettingsMenu = settingsScreen },
+                    else => {},
+                }
+            },
+            .ThemeSelectMenu => |screen| {
+                switch (screen.position_y) {
                     .zero => self.state = .{ .ChangeMusic = "resources/theme_A.mp3" },
                     .one => self.state = .{ .ChangeMusic = "resources/theme_B.mp3" },
                     .two => self.state = .{ .ChangeMusic = "resources/theme_C.mp3" },
-                    .three => self.state = .{ .SettingsMenu = settingsScreen },
+                    .three => self.state = .{ .MusicMenu = musicScreen },
                     .four => unreachable,
                 }
             },

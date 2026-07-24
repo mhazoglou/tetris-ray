@@ -32,17 +32,16 @@ pub const Game = struct{
 
     state: State,
     active_tetramino: Tetramino,
-    // ghost_tetramino: Tetramino,
     hold_tetramino: ?u8,
     tetramino_num: usize,
     tetramino_seq: [7]u8,
     rand: *std.Random,
-    timer_das: c_longdouble,
-    timer_ar: c_longdouble,
-    time_to_drop: c_longdouble, // the time in second before the tetramino drops by one square of the grid
-    timer_lock: c_longdouble,
-    timer_drop: c_longdouble,
-    timer_exit: c_longdouble,
+    timer_das: f64,
+    timer_ar: f64,
+    time_to_drop: f64, // the time in second before the tetramino drops by one square of the grid
+    timer_lock: f64,
+    timer_drop: f64,
+    timer_exit: f64,
     in_lock_delay: bool,
     is_t_spin: bool,
     is_t_spin_mini: bool,
@@ -51,14 +50,16 @@ pub const Game = struct{
     score: u64,
     combo: ?u64,
     menu: menu.Menu,
-    imap: InputMapping,
+    //imap: InputMapping,
+    settings: Settings,
     high_score: HighScore,
     running: bool,
     just_held: bool,
     
     pub fn init(
         rand: *std.Random, 
-        imap: InputMapping, 
+        settings: Settings,
+        //imap: InputMapping, 
         high_score: HighScore
     ) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
@@ -84,8 +85,8 @@ pub const Game = struct{
             .score = 0,
             .combo = null,
             .menu = menu.Menu.init(),
-            .imap = imap,
             .high_score = high_score,
+            .settings = settings,
             .running = true,
             .just_held = false,
         };
@@ -139,6 +140,7 @@ pub const Game = struct{
         c.SetMusicPan(music, 0.0);
         c.SetMusicVolume(music, 0.8);
 
+        var imap = self.settings.imap;
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) { // Detect window close button or ESC key
 
@@ -148,17 +150,17 @@ pub const Game = struct{
                 },
                 .InGame => {
                     c.UpdateMusicStream(music);
-                    if (c.IsKeyPressed(self.imap.left) and !self.leftBlocked()) {
+                    if (c.IsKeyPressed(imap.left) and !self.leftBlocked()) {
                         self.active_tetramino.move_left();
                         self.resetTimerDAS();
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(self.imap.right) and !self.rightBlocked()) {
+                    if (c.IsKeyPressed(imap.right) and !self.rightBlocked()) {
                         self.active_tetramino.move_right();
                         self.resetTimerDAS();
                         self.resetTSpin();
                     }
-                    if (c.IsKeyDown(self.imap.left) and !self.leftBlocked()) {
+                    if (c.IsKeyDown(imap.left) and !self.leftBlocked()) {
                         const das_condition = self.lapseDASandAR();
                         if (das_condition) {
                             self.active_tetramino.move_left();
@@ -166,7 +168,7 @@ pub const Game = struct{
                         }
                         self.resetTSpin();
                     }
-                    if (c.IsKeyDown(self.imap.right) and !self.rightBlocked()) {
+                    if (c.IsKeyDown(imap.right) and !self.rightBlocked()) {
                         const das_condition = self.lapseDASandAR();
                         if (das_condition) {
                             self.active_tetramino.move_right();
@@ -174,7 +176,7 @@ pub const Game = struct{
                         }
                         self.resetTSpin();
                     }
-                    if (c.IsKeyDown(self.imap.@"soft drop")) {
+                    if (c.IsKeyDown(imap.@"soft drop")) {
                         self.timer_drop += c.GetFrameTime();
                         if (!self.downBlocked() and (self.timer_drop >= DART)) {
                             self.active_tetramino.move_down();
@@ -186,7 +188,7 @@ pub const Game = struct{
                         }
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(self.imap.@"hard drop")) {
+                    if (c.IsKeyPressed(imap.@"hard drop")) {
                         var cells: u64 = 0; 
                         while(!self.downBlocked()) {
                             self.active_tetramino.move_down();
@@ -200,12 +202,12 @@ pub const Game = struct{
                         c.PlaySound(hdrop_sound);
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(self.imap.hold)) {
+                    if (c.IsKeyPressed(imap.hold)) {
                         self.holdPiece();
                         c.PlaySound(hold_sound);
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(self.imap.@"rotate CW")) {
+                    if (c.IsKeyPressed(imap.@"rotate CW")) {
                         const opt_wall_kick = self.superRotationSystem(.CW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CW(wall_kick);
@@ -215,7 +217,7 @@ pub const Game = struct{
                             self.is_t_spin_mini = self.isTSpinMini(wall_kick);
                         }
                     }
-                    if (c.IsKeyPressed(self.imap.@"rotate CCW")) {
+                    if (c.IsKeyPressed(imap.@"rotate CCW")) {
                         const opt_wall_kick = self.superRotationSystem(.CCW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CCW(wall_kick);
@@ -225,12 +227,12 @@ pub const Game = struct{
                             self.is_t_spin_mini = self.isTSpinMini(wall_kick);
                         }
                     }
-                    if (c.IsKeyPressed(self.imap.pause)) {
+                    if (c.IsKeyPressed(imap.pause)) {
                         self.menu.state = .{ .PauseMenu = menu.pauseScreen };
                     }
 
                     const exit_elapsed = self.timer_exit >= EXITTIME;
-                    if (c.IsKeyUp(self.imap.exit)) {
+                    if (c.IsKeyUp(imap.exit)) {
                         self.timer_exit = 0.0;
                     } else {
                         self.timer_exit += c.GetFrameTime();
@@ -269,18 +271,25 @@ pub const Game = struct{
                     self.drawGame();
                     continue :loop self.menu.state;
                 },
+                .ToggleGhost => {
+                    c.UpdateMusicStream(music);
+                    // self.drawGame();
+                    self.settings.toggleGhost();
+                    self.menu.state= .{ .SettingsMenu = menu.settingsScreen };
+                    continue :loop self.menu.state;
+                },
                 .RemappingInput => |str| {
                     c.UpdateMusicStream(music);
                     const end = str.len;
                     if (end > 0) {
                         const field = str[0..end - 2];
-                        const new_key = self.imap.rebind(field);
+                        const new_key = imap.rebind(field);
                         if (new_key != 0) {
                             self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
                         }
                         self.drawGame();
                     } else {
-                        self.imap = default_map;
+                        imap = default_map;
                         self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
                     }
                     continue :loop self.menu.state;
@@ -676,7 +685,7 @@ pub const Game = struct{
         c.BeginDrawing();
 
         c.ClearBackground(c.BLACK);
-        if (c.IsKeyDown(self.imap.exit)) {
+        if (c.IsKeyDown(self.settings.imap.exit)) {
             c.DrawTextEx(font, "Keep holding to exit game...", 
                 .{ .x = 0, .y = 0 }, 2 * item_font_size, spacing, c.LIGHTGRAY
             );
@@ -689,13 +698,15 @@ pub const Game = struct{
                 const controller: c_int = x;
 
                 var blocks_pos = active_tetramino.get_blocks();
-                while (!state.checkOverlap(blocks_pos)) {
-                    for (&blocks_pos) |*block| {
-                        block.*[0] += 1;
+                if (self.settings.ghost_piece) {
+                    while (!state.checkOverlap(blocks_pos)) {
+                        for (&blocks_pos) |*block| {
+                            block.*[0] += 1;
+                        }
                     }
-                }
-                for (&blocks_pos) |*block| {
-                    block.*[0] -= 1;
+                    for (&blocks_pos) |*block| {
+                        block.*[0] -= 1;
+                    }
                 }
                 const tetra_color = active_tetramino.get_color();
                 for (2..MAXROWS) |row| {
@@ -705,11 +716,13 @@ pub const Game = struct{
                         } else if (active_tetramino.isOccupied(row, col)) {
                             c.DrawRectangle(x, y, squareSize, squareSize, tetra_color);
                         }
-                        for (blocks_pos) |block| {
-                            if ((block[0] == row) and (block[1] == col)) {
-                                c.DrawRectangle(
-                                    x, y, squareSize, squareSize, c.Fade(tetra_color, 0.3)
-                                );
+                        if (self.settings.ghost_piece) {
+                            for (blocks_pos) |block| {
+                                if ((block[0] == row) and (block[1] == col)) {
+                                    c.DrawRectangle(
+                                        x, y, squareSize, squareSize, c.Fade(tetra_color, 0.3)
+                                    );
+                                }
                             }
                         }
                         c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
@@ -798,7 +811,7 @@ pub const Game = struct{
                         inline for (fields) |fld| {
                             if (std.mem.eql(u8, fld.name, field[0..end - 2])) {
                                 any ^= true;
-                                c.DrawTextEx(font, GetKeyText(@field(self.imap, fld.name)), .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                                c.DrawTextEx(font, GetKeyText(@field(self.settings.imap, fld.name)), .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                                 c.DrawTextEx(font, field, .{ .x = pos_x - field_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                             }
                         } 
@@ -1126,6 +1139,45 @@ pub const HighScore = extern struct {
 pub const empty_high_score: HighScore = .{
     .top_ten_scores = .{0} ** 10,
     .top_ten_names = .{("a" ** NAMELENGTH).*} ** 10,
+};
+
+pub const Settings = struct{
+    imap: InputMapping,
+    ghost_piece: bool,
+    master_volume: f32,
+    music_volume: f32,
+    sfx_volume: f32,
+
+    fn adjustMaster(self: *Settings, change: f32) void {
+        self.master_volume = std.math.clamp(
+            self.master_volume + change, 0.0, 1.0
+        );
+    }
+
+    fn adjustMusic(self: *Settings, change: f32) void {
+        self.music_volume = std.math.clamp(
+            self.music_volume + change, 0.0, 1.0
+        );
+    }
+
+    fn adjustSFX(self: *Settings, change: f32) void {
+        self.sfx_volume = std.math.clamp(
+            self.sfx_volume + change, 0.0, 1.0
+        );
+    }
+
+    fn toggleGhost(self: *Settings) void {
+        self.ghost_piece = !self.ghost_piece;
+    }
+
+};
+
+pub const default_settings: Settings = .{
+    .imap = default_map,
+    .ghost_piece = true,
+    .master_volume = 1.0,
+    .music_volume = 1.0,
+    .sfx_volume = 1.0,
 };
 
 pub fn GetKeyText(key: c_int) [:0]const u8 {
