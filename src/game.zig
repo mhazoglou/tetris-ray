@@ -403,9 +403,11 @@ pub const Game = struct{
         } else {
             score_factor = [_]u64{100, 300, 500, 800};
         }
-        const perfect_clear_bonus = [_]u64{800, 1200, 1800, 2000};
-        for (perfect_clear_bonus, 0..) |bonus, i| {
-            score_factor[i] += bonus;
+        if (self.state.isEmpty()) {
+            const perfect_clear_bonus = [_]u64{800, 1200, 1800, 2000};
+            for (perfect_clear_bonus, 0..) |bonus, i| {
+                score_factor[i] += bonus;
+            }
         }
         const score_level = self.level_sub_one + 1;
         if (idx > 0) {
@@ -674,7 +676,6 @@ pub const Game = struct{
         c.BeginDrawing();
 
         c.ClearBackground(c.BLACK);
-        // c.DrawFPS(0, 0);
         if (c.IsKeyDown(self.imap.exit)) {
             c.DrawTextEx(font, "Keep holding to exit game...", 
                 .{ .x = 0, .y = 0 }, 2 * item_font_size, spacing, c.LIGHTGRAY
