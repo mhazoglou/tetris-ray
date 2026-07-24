@@ -126,7 +126,7 @@ pub const Game = struct{
         font = c.GetFontDefault();// c.LoadFont("resources/DepartureMonoNerdFontMono-Regular.otf"); // 
         defer c.UnloadFont(font);
 
-        c.InitAudioDevice();              // Initialize audio device
+        c.InitAudioDevice(); // Initialize audio device
         var music = c.LoadMusicStream("resources/theme_A.mp3");
         const rot_sound = c.LoadSound("resources/Rotate_Piece_Sound_Effect.mp3");
         const lock_sound = c.LoadSound("resources/se_game_landing.wav");
@@ -140,7 +140,7 @@ pub const Game = struct{
         c.SetMusicVolume(music, 0.8);
 
         c.SetTargetFPS(FRAMERATE);
-        while (!c.WindowShouldClose()) {   // Detect window close button or ESC key
+        while (!c.WindowShouldClose()) { // Detect window close button or ESC key
 
             loop: switch (self.menu.state) {
                 .ExitGame => {
@@ -150,45 +150,29 @@ pub const Game = struct{
                     c.UpdateMusicStream(music);
                     if (c.IsKeyPressed(self.imap.left) and !self.leftBlocked()) {
                         self.active_tetramino.move_left();
-                        self.timer_das = 0;
-                        self.timer_ar = 0;
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTimerDAS();
+                        self.resetTSpin();
                     }
                     if (c.IsKeyPressed(self.imap.right) and !self.rightBlocked()) {
                         self.active_tetramino.move_right();
-                        self.timer_das = 0;
-                        self.timer_ar = 0;
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTimerDAS();
+                        self.resetTSpin();
                     }
                     if (c.IsKeyDown(self.imap.left) and !self.leftBlocked()) {
-                        self.timer_das += c.GetFrameTime();
-                        self.timer_ar += c.GetFrameTime();
-                        const das_condition = (
-                            (self.timer_das >= DAS) and 
-                            (self.timer_ar >= DASART)
-                        );
+                        const das_condition = self.lapseDASandAR();
                         if (das_condition) {
                             self.active_tetramino.move_left();
                             self.timer_ar = 0;
                         }
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTSpin();
                     }
                     if (c.IsKeyDown(self.imap.right) and !self.rightBlocked()) {
-                        self.timer_das += c.GetFrameTime();
-                        self.timer_ar += c.GetFrameTime();
-                        const das_condition = (
-                            (self.timer_das >= DAS) and 
-                            (self.timer_ar >= DASART)
-                        );
+                        const das_condition = self.lapseDASandAR();
                         if (das_condition) {
                             self.active_tetramino.move_right();
                             self.timer_ar = 0;
                         }
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTSpin();
                     }
                     if (c.IsKeyDown(self.imap.@"soft drop")) {
                         self.timer_drop += c.GetFrameTime();
@@ -200,8 +184,7 @@ pub const Game = struct{
                         } else {
                             self.lockDelay(lock_sound);
                         }
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTSpin();
                     }
                     if (c.IsKeyPressed(self.imap.@"hard drop")) {
                         var cells: u64 = 0; 
@@ -215,14 +198,12 @@ pub const Game = struct{
                         }
                         self.score += 2 * cells;
                         c.PlaySound(hdrop_sound);
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTSpin();
                     }
                     if (c.IsKeyPressed(self.imap.hold)) {
                         self.holdPiece();
                         c.PlaySound(hold_sound);
-                        self.is_t_spin = false;
-                        self.is_t_spin_mini = false;
+                        self.resetTSpin();
                     }
                     if (c.IsKeyPressed(self.imap.@"rotate CW")) {
                         const opt_wall_kick = self.superRotationSystem(.CW);
@@ -459,6 +440,26 @@ pub const Game = struct{
         );
     }
 
+    fn resetTimerDAS(self: *Game) void {
+        self.timer_das = 0;
+        self.timer_ar = 0;
+    }
+
+    fn lapseDASandAR(self: *Game) bool {
+        self.timer_das += c.GetFrameTime();
+        self.timer_ar += c.GetFrameTime();
+        const das_condition = (
+            (self.timer_das >= DAS) and 
+            (self.timer_ar >= DASART)
+        );
+        return das_condition;
+    }
+
+    fn resetTSpin(self: *Game) void {
+        self.is_t_spin = false;
+        self.is_t_spin_mini = false;
+    }
+
     fn leftBlocked(self: *Game) bool {
         const block_pos_arr = self.active_tetramino.get_blocks();
         var any_block = false; 
@@ -692,12 +693,6 @@ pub const Game = struct{
                             c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
                         } else if (active_tetramino.isOccupied(row, col)) {
                             c.DrawRectangle(x, y, squareSize, squareSize, active_tetramino.get_color());
-                            // c.DrawRectangle(
-                            //     x + @divTrunc(squareSize, 5), 
-                            //     y + @divTrunc(squareSize, 5), 
-                            //     3 * @divTrunc(squareSize, 5), 3 * @divTrunc(squareSize, 5),
-                            //     c.BLACK//active_tetramino.get_color()
-                            // );
                         }
                         c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
                         c.DrawLine(x, y, x, y + squareSize, c.LIGHTGRAY );
@@ -765,7 +760,6 @@ pub const Game = struct{
                         const arrow_dim = c.MeasureTextEx(font, ">", item_font_size, spacing);
                         const arrow_shift_x = 2 * arrow_dim.x;
                         c.DrawTextEx(font, ">", .{ .x = pos_x - arrow_shift_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
-                        // c.DrawTextEx(font, "<", .{ .x = pos_x + item_dim.x + arrow_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                     }
                 }
             },
