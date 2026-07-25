@@ -14,7 +14,9 @@ const MenuState = union(enum) {
     GameOverMenu: GameOverScreen,
     HighScoreMenu: HighScoreScreen,
     ToggleGhost,
-    ChangeVolume: f32,
+    ChangeMasterVolume: f32,
+    ChangeMusicVolume: f32,
+    ChangeSFXVolume: f32,
     RemappingInput: [:0]const u8,
     ChangeMusic: [:0]const u8,
     EnterName: usize,
@@ -239,8 +241,16 @@ pub const Menu = struct {
 
     pub fn cycleLeft(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleLeft();
+            },
+            .MusicMenu => |screen| {
+                switch (screen.position_y) {
+                    .one => self.state = .{ .ChangeMasterVolume = -0.05 },
+                    .two => self.state = .{ .ChangeMusicVolume = -0.05 },
+                    .three => self.state = .{ .ChangeSFXVolume = -0.05 },
+                    else => {},
+                }
             },
             else => {},
         }
@@ -248,8 +258,16 @@ pub const Menu = struct {
 
     pub fn cycleRight(self: *Menu) void {
         switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleRight();
+            },
+            .MusicMenu => |screen| {
+                switch (screen.position_y) {
+                    .one => self.state = .{ .ChangeMasterVolume = 0.05 },
+                    .two => self.state = .{ .ChangeMusicVolume = 0.05 },
+                    .three => self.state = .{ .ChangeSFXVolume = 0.05 },
+                    else => {},
+                }
             },
             else => {}
         }

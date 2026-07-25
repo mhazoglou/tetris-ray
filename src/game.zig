@@ -138,7 +138,9 @@ pub const Game = struct{
         c.PlayMusicStream(music);
         defer c.StopMusicStream(music);
         c.SetMusicPan(music, 0.0);
-        c.SetMusicVolume(music, 0.8);
+        c.SetMasterVolume(self.settings.master_volume);
+        c.SetMusicVolume(music, self.settings.music_volume);
+        // c.SetSoundVolume(rot_sound, self.settings.sfx_volume);
 
         var imap = self.settings.imap;
         c.SetTargetFPS(FRAMERATE);
@@ -275,7 +277,9 @@ pub const Game = struct{
                     c.UpdateMusicStream(music);
                     // self.drawGame();
                     self.settings.toggleGhost();
-                    self.menu.state= .{ .SettingsMenu = menu.settingsScreen };
+                    var screen = menu.settingsScreen;
+                    screen.position_y = .two;
+                    self.menu.state = .{ .SettingsMenu = screen };
                     continue :loop self.menu.state;
                 },
                 .RemappingInput => |str| {
@@ -298,7 +302,16 @@ pub const Game = struct{
                     music = c.LoadMusicStream(str);
                     c.PlayMusicStream(music);
                     c.UpdateMusicStream(music);
-                    self.menu.state = .{ .MusicMenu = menu.musicScreen };
+                    self.menu.state = .{ .ThemeSelectMenu = menu.themeSelectScreen };
+                    continue :loop self.menu.state;
+                },
+                .ChangeMasterVolume => |val| {
+                    self.settings.adjustMaster(val);
+                    c.SetMasterVolume(self.settings.master_volume);
+                    c.UpdateMusicStream(music);
+                    var screen = menu.musicScreen;
+                    screen.position_y = .one;
+                    self.menu.state = .{ .MusicMenu = screen };
                     continue :loop self.menu.state;
                 },
                 .EnterName => |idx| {
@@ -763,6 +776,7 @@ pub const Game = struct{
             .SettingsMenu, 
             .PauseMenu,
             .GameOverMenu, 
+            .ThemeSelectMenu,
             .MusicMenu => |screen| {
                 const draw_top_y = screenHeight / 4;
                 const draw_left_x = screenWidth / 4;
