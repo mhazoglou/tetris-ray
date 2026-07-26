@@ -146,7 +146,7 @@ pub const Game = struct{
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) { // Detect window close button or ESC key
 
-            loop: switch (self.menu.state) {
+            loop: switch (self.menu.getState()) {
                 .ExitGame => {
                     break;
                 },
@@ -230,7 +230,7 @@ pub const Game = struct{
                         }
                     }
                     if (c.IsKeyPressed(imap.pause)) {
-                        self.menu.state = .{ .PauseMenu = menu.pauseScreen };
+                        self.menu.push(.{ .PauseMenu = menu.pauseScreen });
                     }
 
                     const exit_elapsed = self.timer_exit >= EXITTIME;
@@ -239,7 +239,7 @@ pub const Game = struct{
                     } else {
                         self.timer_exit += c.GetFrameTime();
                         if (exit_elapsed) {
-                            self.menu.state = .ExitGame;
+                            self.menu.changeState(.ExitGame);
                         }
                     }
 
@@ -263,15 +263,15 @@ pub const Game = struct{
                     if (!self.running) {
                         const opt_i = self.high_score.checkHighScore(self.score);
                         if (opt_i) |idx| {
-                            self.menu.state = .{ .EnterName = idx };
+                            self.menu.push(.{ .EnterName = idx });
                         } else {
-                            self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
+                            self.menu.push(.{ .GameOverMenu = menu.gameOverScreen });
                             self.reset();
                         }
                     }
 
                     self.drawGame();
-                    continue :loop self.menu.state;
+                    continue :loop self.menu.getState();
                 },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
@@ -279,8 +279,8 @@ pub const Game = struct{
                     self.settings.toggleGhost();
                     var screen = menu.settingsScreen;
                     screen.position_y = .two;
-                    self.menu.state = .{ .SettingsMenu = screen };
-                    continue :loop self.menu.state;
+                    self.menu.back();
+                    continue :loop self.menu.getState();
                 },
                 .RemappingInput => |str| {
                     c.UpdateMusicStream(music);
@@ -289,30 +289,35 @@ pub const Game = struct{
                         const field = str[0..end - 2];
                         const new_key = imap.rebind(field);
                         if (new_key != 0) {
-                            self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
+                            self.menu.back();
                         }
                         self.drawGame();
                     } else {
                         imap = default_map;
-                        self.menu.state = .{ .ControlsMenu = menu.controlsScreen };
+                        self.menu.back();
                     }
-                    continue :loop self.menu.state;
+                    continue :loop self.menu.getState();
                 },
                 .ChangeMusic => |str| {
                     music = c.LoadMusicStream(str);
                     c.PlayMusicStream(music);
                     c.UpdateMusicStream(music);
-                    self.menu.state = .{ .ThemeSelectMenu = menu.themeSelectScreen };
-                    continue :loop self.menu.state;
+                    self.menu.back();
+                    continue :loop self.menu.getState();
                 },
                 .ChangeMasterVolume => |val| {
                     self.settings.adjustMaster(val);
                     c.SetMasterVolume(self.settings.master_volume);
                     c.UpdateMusicStream(music);
-                    var screen = menu.musicScreen;
-                    screen.position_y = .one;
-                    self.menu.state = .{ .MusicMenu = screen };
-                    continue :loop self.menu.state;
+                    self.menu.back();
+                    continue :loop self.menu.getState();
+                },
+                .ChangeMusicVolume => |val| {
+                    self.settings.adjustMusic(val);
+                    c.SetMusicVolume(music, self.settings.music_volume);
+                    c.UpdateMusicStream(music);
+                    self.menu.back();
+                    continue :loop self.menu.getState();
                 },
                 .EnterName => |idx| {
                     c.UpdateMusicStream(music);
@@ -343,19 +348,19 @@ pub const Game = struct{
                     }
                     self.high_score.addNewScore(idx, self.score, enter_name);
                     enter_name = ("_" ** NAMELENGTH).*;
-                    self.menu.state = .{ .GameOverMenu = menu.gameOverScreen };
+                    self.menu.changeState(.{ .GameOverMenu = menu.gameOverScreen });
                     self.reset();
-                    continue :loop self.menu.state;
+                    continue :loop self.menu.getState();
                 },
                 else => {
                     c.UpdateMusicStream(music);
                     self.menu.menu_loop(self.*);
                     self.drawGame();
-                    switch (self.menu.state) {
+                    switch (self.menu.getState()) {
                         .StartMenu => self.reset(),
                         else => {},
                     } 
-                    continue :loop self.menu.state;
+                    continue :loop self.menu.getState();
                 },
             }
         }
@@ -703,7 +708,7 @@ pub const Game = struct{
                 .{ .x = 0, .y = 0 }, 2 * item_font_size, spacing, c.LIGHTGRAY
             );
         }
-        switch (self.menu.state) {
+        switch (self.menu.getState()) {
             .InGame => {
                 var x: c_int = screenWidth / 2 - MAXCOLS * squareSize / 2;
                 var y: c_int = screenHeight / 2 - (MAXROWS - 2) * squareSize / 2;

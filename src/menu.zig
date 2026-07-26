@@ -3,6 +3,8 @@ const Game = @import("game.zig").Game;
 const EXITTIME = @import("game.zig").EXITTIME;
 const c = @import("c");
 
+const DEPTH = 7;
+
 const MenuState = union(enum) {
     StartMenu: StartScreen,
     SettingsMenu: SettingsScreen,
@@ -85,8 +87,6 @@ pub fn MenuScreen() type {
             pos = if (pos == 0) max else (pos - 1) % (max + 1);
             self.position_x = @enumFromInt(pos);
         }
-
-        // "▶"
 
     };
 }
@@ -182,14 +182,15 @@ pub const highScoreScreen = HighScoreScreen.init(.four, .one,
 );
 
 pub const Menu = struct {
-    state: MenuState,
-    settings_return: MenuState,
+    state_idx: usize,
+    state_hist: [DEPTH]MenuState,
     timer_exit: f64,
 
     pub fn init() Menu {
+        const start_menu: MenuState = .{ .StartMenu = startScreen };
         return .{
-            .state = .{ .StartMenu = startScreen },
-            .settings_return = .{ .StartMenu = startScreen },
+            .state_idx = 0,
+            .state_hist = .{start_menu} ** DEPTH,
             .timer_exit = 0.0,
         };
     }
@@ -216,14 +217,16 @@ pub const Menu = struct {
         } else {
             self.timer_exit += c.GetFrameTime();
             if (exit_elapsed) {
-                self.state = .ExitGame;
+                self.changeState(.ExitGame);
             }
         }
     }
 
     pub fn cycleUp(self: *Menu) void {
-        switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
+        const idx = self.state_idx;
+        switch (self.state_hist[idx]) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, 
+            .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleUp();
             },
             else => {},
@@ -231,8 +234,10 @@ pub const Menu = struct {
     }
 
     pub fn cycleDown(self: *Menu) void {
-        switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
+        const idx = self.state_idx;
+        switch (self.state_hist[idx]) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, 
+            .ControlsMenu, .MusicMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleDown();
             },
             else => {}
@@ -240,15 +245,17 @@ pub const Menu = struct {
     }
 
     pub fn cycleLeft(self: *Menu) void {
-        switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .ThemeSelectMenu => |*pos| {
+        const idx = self.state_idx;
+        switch (self.state_hist[idx]) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, 
+            .ControlsMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleLeft();
             },
             .MusicMenu => |screen| {
                 switch (screen.position_y) {
-                    .one => self.state = .{ .ChangeMasterVolume = -0.05 },
-                    .two => self.state = .{ .ChangeMusicVolume = -0.05 },
-                    .three => self.state = .{ .ChangeSFXVolume = -0.05 },
+                    .one => self.push(.{ .ChangeMasterVolume = -0.05 }),
+                    .two => self.push(.{ .ChangeMusicVolume = -0.05 }),
+                    .three => self.push(.{ .ChangeSFXVolume = -0.05 }),
                     else => {},
                 }
             },
@@ -257,15 +264,17 @@ pub const Menu = struct {
     }
 
     pub fn cycleRight(self: *Menu) void {
-        switch (self.state) {
-            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, .ControlsMenu, .ThemeSelectMenu => |*pos| {
+        const idx = self.state_idx;
+        switch (self.state_hist[idx]) {
+            .StartMenu, .SettingsMenu, .PauseMenu, .GameOverMenu, 
+            .ControlsMenu, .ThemeSelectMenu => |*pos| {
                 pos.cycleRight();
             },
             .MusicMenu => |screen| {
                 switch (screen.position_y) {
-                    .one => self.state = .{ .ChangeMasterVolume = 0.05 },
-                    .two => self.state = .{ .ChangeMusicVolume = 0.05 },
-                    .three => self.state = .{ .ChangeSFXVolume = 0.05 },
+                    .one => self.push(.{ .ChangeMasterVolume = 0.05 }),
+                    .two => self.push(.{ .ChangeMusicVolume = 0.05 }),
+                    .three => self.push(.{ .ChangeSFXVolume = 0.05 }),
                     else => {},
                 }
             },
@@ -274,52 +283,48 @@ pub const Menu = struct {
     }
 
     pub fn selected(self: *Menu) void {
-        const state = self.state;
-        switch (state) {
+        const idx = self.state_idx;
+        switch (self.state_hist[idx]) {
             .StartMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => self.state = .InGame,
-                    .one => {
-                        self.state = .{ .SettingsMenu = settingsScreen};
-                        self.settings_return = .{ .StartMenu = startScreen};
-                    },
-                    .two => self.state = .{ .HighScoreMenu = highScoreScreen},
-                    .three => self.state = .ExitGame,
+                    .zero => self.push(.InGame),
+                    .one => self.push(
+                        .{ .SettingsMenu = settingsScreen }
+                    ),
+                    .two => self.push(
+                        .{ .HighScoreMenu = highScoreScreen }
+                    ),
+                    .three => self.changeState(.ExitGame),
                     else => unreachable,
                 }
             },
             .SettingsMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => self.state = .{ .MusicMenu = musicScreen },
-                    .one => self.state = .{ .ControlsMenu = controlsScreen },
-                    .two => self.state = .ToggleGhost,
-                    .three => self.state = self.settings_return,
+                    .zero => self.push(.{ .MusicMenu = musicScreen }),
+                    .one => self.push(.{ .ControlsMenu = controlsScreen }),
+                    .two => self.push(.ToggleGhost),
+                    .three => self.back(),
                     else => unreachable,
                 }
             },
             .HighScoreMenu => |screen| {
                 _ = screen;
-                // const y = @intFromEnum(screen.position_y);
-                // const x = @intFromEnum(screen.position_x);
-                self.state = .{ .StartMenu = startScreen};
+                self.back();
             },
             .PauseMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => self.state = .InGame,
-                    .one => {
-                        self.state = .{ .SettingsMenu = settingsScreen};
-                        self.settings_return = .{ .PauseMenu = pauseScreen};
-                    },
-                    .two => self.state = .{ .StartMenu = startScreen},
-                    .three => self.state = .ExitGame,
+                    .zero => self.back(),
+                    .one => self.push(.{ .SettingsMenu = settingsScreen}),
+                    .two => self.backToStart(),
+                    .three => self.changeState(.ExitGame),
                     .four => unreachable,
                 }
             },
             .GameOverMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => self.state = .InGame,
-                    .one => self.state = .{ .StartMenu = startScreen},
-                    .two => self.state =  .ExitGame,
+                    .zero => self.back(),
+                    .one => self.backToStart(),
+                    .two => self.changeState(.ExitGame),
                     else => unreachable,
                 }
             },
@@ -329,34 +334,63 @@ pub const Menu = struct {
                 const y = @intFromEnum(screen.position_y);
                 const x = @intFromEnum(screen.position_x);
                 if ((y == 4) and (x == 1)) {
-                    self.state = .{ .SettingsMenu = settingsScreen};
+                    self.back();
                 } else if ((y == 4) and (x == 0)) {
-                    self.state = .{ .RemappingInput = "" };
+                    self.push(.{ .RemappingInput = "" });
                 } else {
-                    self.state = .{ .RemappingInput = screen.arr_str[y][x]};
+                    self.push(.{ .RemappingInput = screen.arr_str[y][x]});
                 }
             },
             .MusicMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
-                    // .one => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
-                    // .two => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
-                    // .three => self.state = .{ .ThemeSelectMenu = themeSelectScreen },
-                    .four => self.state = .{ .SettingsMenu = settingsScreen },
+                    .zero => self.push(
+                        .{ .ThemeSelectMenu = themeSelectScreen }
+                    ),
+                    .four => self.back(),
                     else => {},
                 }
             },
             .ThemeSelectMenu => |screen| {
                 switch (screen.position_y) {
-                    .zero => self.state = .{ .ChangeMusic = "resources/theme_A.mp3" },
-                    .one => self.state = .{ .ChangeMusic = "resources/theme_B.mp3" },
-                    .two => self.state = .{ .ChangeMusic = "resources/theme_C.mp3" },
-                    .three => self.state = .{ .MusicMenu = musicScreen },
+                    .zero => self.push(
+                        .{ .ChangeMusic = "resources/theme_A.mp3" }
+                    ),
+                    .one => self.push(
+                        .{ .ChangeMusic = "resources/theme_B.mp3" }
+                    ),
+                    .two => self.push(
+                        .{ .ChangeMusic = "resources/theme_C.mp3" }
+                    ),
+                    .three => self.back(),
                     .four => unreachable,
                 }
             },
             else => {},
         }
+    }
+
+    pub fn push(self: *Menu, state: MenuState) void {
+        const idx = self.state_idx;
+        self.state_idx += 1;
+        self.state_hist[idx + 1] = state;
+    }
+
+    pub fn back(self: *Menu) void {
+        self.state_idx -|= 1;
+    }
+
+    pub fn backToStart(self: *Menu) void {
+        self.state_idx = 0;
+    }
+
+    pub fn changeState(self: *Menu, state: MenuState) void {
+        const idx = self.state_idx;
+        self.state_hist[idx] = state;
+    }
+
+    pub fn getState(self: Menu) MenuState {
+        const idx = self.state_idx;
+        return self.state_hist[idx];
     }
 
 };
