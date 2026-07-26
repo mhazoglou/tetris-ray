@@ -202,13 +202,13 @@ pub const Menu = struct {
         if (c.IsKeyPressed(c.KEY_UP)) {
             self.cycleUp();
         }
-        if (c.IsKeyPressed(game.settings.imap.right)) {
+        if (c.IsKeyPressed(c.KEY_RIGHT) or c.IsKeyPressed(game.settings.imap.right)) {
             self.cycleRight();
         }
-        if (c.IsKeyPressed(game.settings.imap.left)) {
+        if (c.IsKeyPressed(c.KEY_LEFT) or c.IsKeyPressed(game.settings.imap.left)) {
             self.cycleLeft();
         }
-        if (c.IsKeyPressed(c.KEY_ENTER)) {
+        if (c.IsKeyPressed(c.KEY_ENTER) or c.IsKeyPressed(game.settings.imap.pause)) {
             self.selected();
         }
         const exit_elapsed = self.timer_exit >= EXITTIME;

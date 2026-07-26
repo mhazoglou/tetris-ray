@@ -135,14 +135,13 @@ pub const Game = struct{
         const hold_sound = c.LoadSound("resources/se_game_hold.wav");
         const hdrop_sound = c.LoadSound("resources/se_game_harddrop.wav");
         defer c.UnloadMusicStream(music);
+        c.SetMasterVolume(self.settings.master_volume);
+        c.SetMusicVolume(music, self.settings.music_volume);
         c.PlayMusicStream(music);
         defer c.StopMusicStream(music);
         c.SetMusicPan(music, 0.0);
-        c.SetMasterVolume(self.settings.master_volume);
-        c.SetMusicVolume(music, self.settings.music_volume);
         // c.SetSoundVolume(rot_sound, self.settings.sfx_volume);
 
-        var imap = self.settings.imap;
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) { // Detect window close button or ESC key
 
@@ -152,17 +151,17 @@ pub const Game = struct{
                 },
                 .InGame => {
                     c.UpdateMusicStream(music);
-                    if (c.IsKeyPressed(imap.left) and !self.leftBlocked()) {
+                    if (c.IsKeyPressed(self.settings.imap.left) and !self.leftBlocked()) {
                         self.active_tetramino.move_left();
                         self.resetTimerDAS();
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(imap.right) and !self.rightBlocked()) {
+                    if (c.IsKeyPressed(self.settings.imap.right) and !self.rightBlocked()) {
                         self.active_tetramino.move_right();
                         self.resetTimerDAS();
                         self.resetTSpin();
                     }
-                    if (c.IsKeyDown(imap.left) and !self.leftBlocked()) {
+                    if (c.IsKeyDown(self.settings.imap.left) and !self.leftBlocked()) {
                         const das_condition = self.lapseDASandAR();
                         if (das_condition) {
                             self.active_tetramino.move_left();
@@ -170,7 +169,7 @@ pub const Game = struct{
                         }
                         self.resetTSpin();
                     }
-                    if (c.IsKeyDown(imap.right) and !self.rightBlocked()) {
+                    if (c.IsKeyDown(self.settings.imap.right) and !self.rightBlocked()) {
                         const das_condition = self.lapseDASandAR();
                         if (das_condition) {
                             self.active_tetramino.move_right();
@@ -178,7 +177,7 @@ pub const Game = struct{
                         }
                         self.resetTSpin();
                     }
-                    if (c.IsKeyDown(imap.@"soft drop")) {
+                    if (c.IsKeyDown(self.settings.imap.@"soft drop")) {
                         self.timer_drop += c.GetFrameTime();
                         if (!self.downBlocked() and (self.timer_drop >= DART)) {
                             self.active_tetramino.move_down();
@@ -190,7 +189,7 @@ pub const Game = struct{
                         }
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(imap.@"hard drop")) {
+                    if (c.IsKeyPressed(self.settings.imap.@"hard drop")) {
                         var cells: u64 = 0; 
                         while(!self.downBlocked()) {
                             self.active_tetramino.move_down();
@@ -204,12 +203,12 @@ pub const Game = struct{
                         c.PlaySound(hdrop_sound);
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(imap.hold)) {
+                    if (c.IsKeyPressed(self.settings.imap.hold)) {
                         self.holdPiece();
                         c.PlaySound(hold_sound);
                         self.resetTSpin();
                     }
-                    if (c.IsKeyPressed(imap.@"rotate CW")) {
+                    if (c.IsKeyPressed(self.settings.imap.@"rotate CW")) {
                         const opt_wall_kick = self.superRotationSystem(.CW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CW(wall_kick);
@@ -219,7 +218,7 @@ pub const Game = struct{
                             self.is_t_spin_mini = self.isTSpinMini(wall_kick);
                         }
                     }
-                    if (c.IsKeyPressed(imap.@"rotate CCW")) {
+                    if (c.IsKeyPressed(self.settings.imap.@"rotate CCW")) {
                         const opt_wall_kick = self.superRotationSystem(.CCW);
                         if (opt_wall_kick) |wall_kick| {
                             self.active_tetramino.rot_CCW(wall_kick);
@@ -229,12 +228,12 @@ pub const Game = struct{
                             self.is_t_spin_mini = self.isTSpinMini(wall_kick);
                         }
                     }
-                    if (c.IsKeyPressed(imap.pause)) {
+                    if (c.IsKeyPressed(self.settings.imap.pause)) {
                         self.menu.push(.{ .PauseMenu = menu.pauseScreen });
                     }
 
                     const exit_elapsed = self.timer_exit >= EXITTIME;
-                    if (c.IsKeyUp(imap.exit)) {
+                    if (c.IsKeyUp(self.settings.imap.exit)) {
                         self.timer_exit = 0.0;
                     } else {
                         self.timer_exit += c.GetFrameTime();
@@ -287,13 +286,13 @@ pub const Game = struct{
                     const end = str.len;
                     if (end > 0) {
                         const field = str[0..end - 2];
-                        const new_key = imap.rebind(field);
+                        const new_key = self.settings.rebind(field);
                         if (new_key != 0) {
                             self.menu.back();
                         }
                         self.drawGame();
                     } else {
-                        imap = default_map;
+                        self.settings.imap = default_map;
                         self.menu.back();
                     }
                     continue :loop self.menu.getState();
@@ -1189,6 +1188,9 @@ pub const Settings = struct{
         self.ghost_piece = !self.ghost_piece;
     }
 
+    fn rebind(self: *Settings, field: []const u8) c_int {
+        return self.imap.rebind(field); 
+    }
 };
 
 pub const default_settings: Settings = .{
