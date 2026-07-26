@@ -50,7 +50,6 @@ pub const Game = struct{
     score: u64,
     combo: ?u64,
     menu: menu.Menu,
-    //imap: InputMapping,
     settings: Settings,
     high_score: HighScore,
     running: bool,
@@ -59,7 +58,6 @@ pub const Game = struct{
     pub fn init(
         rand: *std.Random, 
         settings: Settings,
-        //imap: InputMapping, 
         high_score: HighScore
     ) Game {
         var buffer = [_]u8{'I', 'O', 'J', 'L', 'T', 'S', 'Z'};
@@ -134,13 +132,18 @@ pub const Game = struct{
         const sdrop_sound = c.LoadSound("resources/se_game_softdrop.wav");
         const hold_sound = c.LoadSound("resources/se_game_hold.wav");
         const hdrop_sound = c.LoadSound("resources/se_game_harddrop.wav");
+        var sound_arr: [5]c.Sound = .{
+            rot_sound, lock_sound, sdrop_sound, hold_sound, hdrop_sound
+        };
         defer c.UnloadMusicStream(music);
         c.SetMasterVolume(self.settings.master_volume);
         c.SetMusicVolume(music, self.settings.music_volume);
         c.PlayMusicStream(music);
         defer c.StopMusicStream(music);
         c.SetMusicPan(music, 0.0);
-        // c.SetSoundVolume(rot_sound, self.settings.sfx_volume);
+        for (&sound_arr) |*sound| {
+            c.SetSoundVolume(sound.*, self.settings.sfx_volume);
+        }
 
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) { // Detect window close button or ESC key
@@ -314,6 +317,16 @@ pub const Game = struct{
                 .ChangeMusicVolume => |val| {
                     self.settings.adjustMusic(val);
                     c.SetMusicVolume(music, self.settings.music_volume);
+                    c.UpdateMusicStream(music);
+                    self.menu.back();
+                    continue :loop self.menu.getState();
+                },
+                .ChangeSFXVolume => |val| {
+                    self.settings.adjustSFX(val);
+                    for (&sound_arr) |*sound| {
+                        c.SetSoundVolume(sound.*, self.settings.sfx_volume);
+                    }
+                    c.PlaySound(rot_sound);
                     c.UpdateMusicStream(music);
                     self.menu.back();
                     continue :loop self.menu.getState();
