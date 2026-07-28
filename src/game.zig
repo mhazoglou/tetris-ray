@@ -217,8 +217,7 @@ pub const Game = struct{
                             self.active_tetramino.rot_CW(wall_kick);
                             c.PlaySound(rot_sound);
                             self.in_lock_delay = false;
-                            self.is_t_spin = self.isTSpin(wall_kick);
-                            self.is_t_spin_mini = self.isTSpinMini(wall_kick);
+                            self.isTSpin(wall_kick);
                         }
                     }
                     if (c.IsKeyPressed(self.settings.imap.@"rotate CCW")) {
@@ -227,8 +226,7 @@ pub const Game = struct{
                             self.active_tetramino.rot_CCW(wall_kick);
                             c.PlaySound(rot_sound);
                             self.in_lock_delay = false;
-                            self.is_t_spin = self.isTSpin(wall_kick);
-                            self.is_t_spin_mini = self.isTSpinMini(wall_kick);
+                            self.isTSpin(wall_kick);
                         }
                     }
                     if (c.IsKeyPressed(self.settings.imap.pause)) {
@@ -587,31 +585,37 @@ pub const Game = struct{
         self.just_held = true;
     }
 
-    fn isTSpin(self: Game, wall_kick: [2]isize) bool {
+    fn isTSpin(self: *Game, wall_kick: [2]isize) void {
         // need logic for 5th SRS kick
         switch (self.active_tetramino) {
             .T => |piece| {
                 // if the wall kick if has the offset from the fifth set
                 if ((@abs(wall_kick[0]) == 2) and (@abs(wall_kick[1]) == 1)) {
-                    return true;
+                    self.is_t_spin = true;
+                    self.is_t_spin_mini = false;
+                    return;
                 }
                 const row = piece.row;
                 const col = piece.col;
                 const orientation = piece.orientation;
 
-                const ll_diag = if ((row + 1 > MAXROWS) or (col - 1) < 0) true else self.state.array[
+                const ll_diag = if ((row + 1 >= MAXROWS) or (col - 1) < 0) true else self.state.array[
                     @as(usize, @intCast(row + 1))
                 ][
                     @as(usize, @intCast(col - 1))
                 ];
 
-                const lr_diag = if ((row + 1 > MAXROWS) or (col + 1) > MAXCOLS) true else self.state.array[
+                const lr_diag = if ((row + 1 >= MAXROWS) or (col + 1) >= MAXCOLS) true else self.state.array[
                     @as(usize, @intCast(row + 1))
                 ][
                     @as(usize, @intCast(col + 1))
                 ];
                 const bottom_diags = ll_diag and lr_diag; 
-                if (!bottom_diags) return false;
+                if (!bottom_diags) {
+                    self.is_t_spin = false;
+                    self.is_t_spin_mini = false;
+                    return;
+                }
                 
 
                 const ul_diag = if ((col - 1) < 0) true else self.state.array[
@@ -620,71 +624,36 @@ pub const Game = struct{
                     @as(usize, @intCast(col - 1))
                 ];
 
-                const ur_diag = if ((col + 1) > MAXCOLS) true else self.state.array[
+                const ur_diag = if ((col + 1) >= MAXCOLS) true else self.state.array[
                     @as(usize, @intCast(row - 1))
                 ][
                     @as(usize, @intCast(col + 1))
                 ];
 
                 const three_diags = bottom_diags and (ul_diag or ur_diag);
-                return switch (orientation) {
-                    .Spawn => ul_diag and ur_diag and (ll_diag or lr_diag),
-                    .Clockwise => bottom_diags and ur_diag,
-                    .CounterClockwise => bottom_diags and ul_diag,
-                    .DoubleRotated => three_diags,
-                };
-            },
-            else => return false,
-        }
-    }
-
-    fn isTSpinMini(self: Game, wall_kick: [2]isize) bool {
-        switch (self.active_tetramino) {
-            .T => |piece| {
-                // if the wall kick if has the offset from the fifth set
-                if ((@abs(wall_kick[0]) == 2) and (@abs(wall_kick[1]) == 1)) {
-                    return false;
+                switch (orientation) {
+                    .Spawn => {
+                        self.is_t_spin = ul_diag and ur_diag and (ll_diag or lr_diag);
+                        self.is_t_spin_mini = three_diags;
+                    },
+                    .Clockwise => {
+                        self.is_t_spin = bottom_diags and ur_diag;
+                        self.is_t_spin_mini =  bottom_diags and ul_diag;
+                    },
+                    .CounterClockwise => {
+                        self.is_t_spin = bottom_diags and ul_diag;
+                        self.is_t_spin_mini = bottom_diags and ur_diag;
+                    },
+                    .DoubleRotated => {
+                        self.is_t_spin = three_diags;
+                        self.is_t_spin_mini = ul_diag and ur_diag and (ll_diag or lr_diag);
+                    },
                 }
-                const row = piece.row;
-                const col = piece.col;
-                const orientation = piece.orientation;
-
-                const ll_diag = if ((row + 1 > MAXROWS) or (col - 1) < 0) true else self.state.array[
-                    @as(usize, @intCast(row + 1))
-                ][
-                    @as(usize, @intCast(col - 1))
-                ];
-
-                const lr_diag = if ((row + 1 > MAXROWS) or (col + 1) > MAXCOLS) true else self.state.array[
-                    @as(usize, @intCast(row + 1))
-                ][
-                    @as(usize, @intCast(col + 1))
-                ];
-                const bottom_diags = ll_diag and lr_diag; 
-                if (!bottom_diags) return false;
-                
-
-                const ul_diag = if ((col - 1) < 0) true else self.state.array[
-                    @as(usize, @intCast(row - 1))
-                ][
-                    @as(usize, @intCast(col - 1))
-                ];
-
-                const ur_diag = if ((col + 1) > MAXCOLS) true else self.state.array[
-                    @as(usize, @intCast(row - 1))
-                ][
-                    @as(usize, @intCast(col + 1))
-                ];
-
-                const three_diags = bottom_diags and (ul_diag or ur_diag);
-                return switch (orientation) {
-                    .Spawn => three_diags,
-                    .Clockwise => bottom_diags and ul_diag,
-                    .CounterClockwise => bottom_diags and ur_diag,
-                    .DoubleRotated => ul_diag and ur_diag and (ll_diag or lr_diag),
-                };
             },
-            else => return false,
+            else => {
+                self.is_t_spin = false;
+                self.is_t_spin_mini = false;
+            },
         }
     }
 
@@ -798,7 +767,7 @@ pub const Game = struct{
                 const draw_top_y = screenHeight / 4;
                 const draw_left_x = screenWidth / 4;
                 const draw_right_x = 3 * screenWidth / 4;
-                const block_size = screenWidth / 6;
+                const block_size = screenWidth / 7;
                 c.DrawLine(draw_left_x, draw_top_y, draw_right_x, draw_top_y, c.LIGHTGRAY );
                 c.DrawLine(draw_left_x, draw_top_y, draw_left_x, draw_top_y + block_size, c.LIGHTGRAY );
                 c.DrawLine(draw_right_x, draw_top_y, draw_right_x, draw_top_y + block_size, c.LIGHTGRAY );
