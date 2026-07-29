@@ -7,7 +7,7 @@ var font: c.Font = undefined;
 var screenWidth: u16 = 800;
 var screenHeight: u16 = 450;
 var item_font_size: u16 = 16;
-var banner_font_size: u16 = 60;
+var banner_font_size: u16 = 80;
 var spacing: u16 = 4;
 var squareSize: u16 = 20;
 var enter_name: [NAMELENGTH:0]u8 = ("_" ** NAMELENGTH).*;
@@ -764,10 +764,10 @@ pub const Game = struct{
             .GameOverMenu, 
             .ThemeSelectMenu,
             .MusicMenu => |screen| {
-                const draw_top_y = screenHeight / 4;
-                const draw_left_x = screenWidth / 4;
-                const draw_right_x = 3 * screenWidth / 4;
-                const block_size = screenWidth / 7;
+                const draw_left_x = screenWidth / 6;
+                const draw_right_x = 5 * screenWidth / 6;
+                const block_size = 4 * screenWidth / 18;
+                const draw_top_y = screenHeight / 2 - block_size;
                 c.DrawLine(draw_left_x, draw_top_y, draw_right_x, draw_top_y, c.LIGHTGRAY );
                 c.DrawLine(draw_left_x, draw_top_y, draw_left_x, draw_top_y + block_size, c.LIGHTGRAY );
                 c.DrawLine(draw_right_x, draw_top_y, draw_right_x, draw_top_y + block_size, c.LIGHTGRAY );
@@ -796,7 +796,7 @@ pub const Game = struct{
             },
             .ControlsMenu => |screen| {
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
-                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y }, banner_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 3 - banner_dim.y }, banner_font_size, spacing, c.LIGHTGRAY);
                 const len_y = (@intFromEnum(screen.max_position_y) + 1);
                 const len_x = (@intFromEnum(screen.max_position_x) + 1);
                 for (0..len_y) |row| {
@@ -830,7 +830,7 @@ pub const Game = struct{
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
                 const banner_pos: c.Vector2 = .{ 
                     .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, 
-                    .y = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y };
+                    .y = @as(f32, @floatFromInt(screenHeight)) / 3 - banner_dim.y };
                 c.DrawTextEx(font, screen.banner, banner_pos, banner_font_size, spacing, c.LIGHTGRAY);
                 const len_y = (@intFromEnum(screen.max_position_y) + 1);
                 const len_x = (@intFromEnum(screen.max_position_x) + 1);

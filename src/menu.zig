@@ -153,9 +153,9 @@ pub const controlsScreen = ControlsScreen.init(.four, .one,
 pub const musicScreen = MusicScreen.init(.four, .zero,
     .{
         .{"Theme Select"} ++ .{""} ** 4,
-        .{"Master Volume: "} ++ .{""} ** 4,
-        .{"Music Volume: "} ++ .{""} ** 4,
-        .{"Sound Effects Volume: "} ++ .{""} ** 4,
+        .{"Master Volume"} ++ .{""} ** 4,
+        .{"Music Volume"} ++ .{""} ** 4,
+        .{"SFX Volume"} ++ .{""} ** 4,
         .{"Return"} ++ .{""} ** 4, 
     },
     "Music"
