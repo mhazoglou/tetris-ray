@@ -683,14 +683,15 @@ pub const Game = struct{
         const active_tetramino = self.active_tetramino;
         c.BeginDrawing();
 
-        c.ClearBackground(c.BLACK);
         if (c.IsKeyDown(self.settings.imap.exit)) {
             c.DrawTextEx(font, "Keep holding to exit game...", 
                 .{ .x = 0, .y = 0 }, 2 * item_font_size, spacing, c.LIGHTGRAY
             );
         }
+
         switch (self.menu.getState()) {
             .InGame => {
+                c.ClearBackground(c.BLACK);
                 var x: c_int = screenWidth / 2 - MAXCOLS * squareSize / 2;
                 var y: c_int = screenHeight / 2 - (MAXROWS - 2) * squareSize / 2;
 
@@ -764,6 +765,7 @@ pub const Game = struct{
             .GameOverMenu, 
             .ThemeSelectMenu,
             .MusicMenu => |screen| {
+                c.ClearBackground(c.BLACK);
                 const draw_left_x = screenWidth / 6;
                 const draw_right_x = 5 * screenWidth / 6;
                 const block_size = 4 * screenWidth / 18;
@@ -795,6 +797,7 @@ pub const Game = struct{
                 }
             },
             .ControlsMenu => |screen| {
+                c.ClearBackground(c.BLACK);
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
                 c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, .y = @as(f32, @floatFromInt(screenHeight)) / 3 - banner_dim.y }, banner_font_size, spacing, c.LIGHTGRAY);
                 const len_y = (@intFromEnum(screen.max_position_y) + 1);
@@ -827,6 +830,7 @@ pub const Game = struct{
                 }
             },
             .HighScoreMenu => |screen| {
+                c.ClearBackground(c.BLACK);
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
                 const banner_pos: c.Vector2 = .{ 
                     .x = @as(f32, @floatFromInt(screenWidth)) / 2 - banner_dim.x / 2, 
@@ -857,6 +861,7 @@ pub const Game = struct{
                 c.DrawTextEx(font, return_txt, return_pos, item_font_size, spacing, c.LIGHTGRAY);
             },
             .RemappingInput => |str| {
+                c.ClearBackground(c.BLACK);
                 const remap_text = "Press a key now to remap your selection";
                 const remap_text_dim = c.MeasureTextEx(font, remap_text, item_font_size, spacing);
                 if (str.len > 0) {
@@ -865,6 +870,7 @@ pub const Game = struct{
                 }
             },
             .EnterName => |idx| {
+                c.ClearBackground(c.BLACK);
                 _ = idx;
                 var input_char: c_int = 0;
                 for (enter_name) |char| {
@@ -872,14 +878,14 @@ pub const Game = struct{
                         input_char += 1;
                     }
                 }
-                const txt = "Congratulations\nNew High Score\nEnter your name:";
+                const txt = c.TextFormat("Congratulations!\nNew High Score!\nScore:      % 6i", self.score);
                 const txt_dim = c.MeasureTextEx(font, txt, item_font_size, spacing);
                 c.DrawTextEx(font, txt, .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 - txt_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("Score:      % 6i", self.score), .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 + txt_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, "Enter your name:", .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 + txt_dim.y / 2}, item_font_size, spacing, c.LIGHTGRAY);
                 c.DrawTextEx(font, &enter_name, .{ .x = screenWidth / 2 - txt_dim.x / 2, .y = screenHeight / 2 + txt_dim.y }, item_font_size, spacing, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("INPUT CHARS: %i/%i", input_char, @as(c_int, NAMELENGTH)), .{ .x = 315, .y = 250 }, item_font_size, spacing, c.LIGHTGRAY);
+                c.DrawTextEx(font, c.TextFormat("INPUT CHARS: %i/%i", input_char, @as(c_int, NAMELENGTH)), .{ .x = screenWidth / 8, .y = screenHeight / 6 }, item_font_size, spacing, c.LIGHTGRAY);
             },
-            else => c.DrawFPS(0, 0),
+            else => {},
         }
         c.EndDrawing();
     }

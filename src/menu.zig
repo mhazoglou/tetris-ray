@@ -253,9 +253,9 @@ pub const Menu = struct {
             },
             .MusicMenu => |screen| {
                 switch (screen.position_y) {
-                    .one => self.push(.{ .ChangeMasterVolume = -0.05 }),
-                    .two => self.push(.{ .ChangeMusicVolume = -0.05 }),
-                    .three => self.push(.{ .ChangeSFXVolume = -0.05 }),
+                    .one => self.push(.{ .ChangeMasterVolume = -0.03125 }),
+                    .two => self.push(.{ .ChangeMusicVolume = -0.03125 }),
+                    .three => self.push(.{ .ChangeSFXVolume = -0.03125 }),
                     else => {},
                 }
             },
@@ -272,9 +272,9 @@ pub const Menu = struct {
             },
             .MusicMenu => |screen| {
                 switch (screen.position_y) {
-                    .one => self.push(.{ .ChangeMasterVolume = 0.05 }),
-                    .two => self.push(.{ .ChangeMusicVolume = 0.05 }),
-                    .three => self.push(.{ .ChangeSFXVolume = 0.05 }),
+                    .one => self.push(.{ .ChangeMasterVolume = 0.03125 }),
+                    .two => self.push(.{ .ChangeMusicVolume = 0.03125 }),
+                    .three => self.push(.{ .ChangeSFXVolume = 0.03125 }),
                     else => {},
                 }
             },
