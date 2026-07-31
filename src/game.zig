@@ -23,7 +23,7 @@ const DAS = 10.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 10 frames o
 const DASART = 2.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 2 frames auto repeat rate
 const DART = 3.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 3 frames drop auto repeat rate
 const FLASHT = 8.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 8 frames 4 normal 4 white flashing
-const FADETIME = 33.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 8 frames 4 normal 4 white flashing
+const FADETIME = 0.5; // 8 frames 4 normal 4 white flashing
 pub const EXITTIME = 3.0;
 const LINESFORLEVELUP = 10;
 const NAMELENGTH = 3;
@@ -434,6 +434,37 @@ pub const Game = struct{
                 row_full_arr[idx] = row;
                 idx += 1;
             }
+        }
+
+        if (idx == 0) {
+            self.menu.push(.AnimateLockPiece);
+        } else {
+            self.menu.push(.AnimateLineClear);
+        }
+
+        var timer_fade: f32 = 0;
+        sw: switch (self.menu.getState()) {
+            .AnimateLineClear => {
+                timer_fade += c.GetFrameTime();
+                if (@mod(timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+                    for (row_full_arr[0..idx]) |row| {
+                        self.state.setRowColor(row, c.RAYWHITE);
+                    } 
+                } else {
+                    for (row_full_arr[0..idx]) |row| {
+                        self.state.setRowColor(row, c.BLACK);
+                    }
+                }
+                if (timer_fade > FADETIME) {
+                    self.in_lock_delay = false;
+                    self.menu.back();
+                    break :sw;
+                }
+                self.drawGame();
+                continue :sw self.menu.getState();
+            },
+            .AnimateLockPiece => {},
+            else => unreachable,
         }
 
         std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
@@ -1011,6 +1042,12 @@ pub fn Matrix(rows: usize, columns: usize) type {
             }
 
             return full;
+        }
+
+        pub fn setRowColor(self: *Self, row: usize, color: c.Color) void {
+            for (0..columns) |col| {
+                self.color_array[row][col] = color;
+            }
         }
 
         pub fn shiftRowsDown(self: *Self, row: usize) void {
