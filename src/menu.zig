@@ -12,6 +12,8 @@ const MenuState = union(enum) {
     ThemeSelectMenu: ThemeSelectScreen,
     ControlsMenu: ControlsScreen,
     InGame,
+    AnimateLockPiece,
+    AnimateLineClear,
     PauseMenu: PauseScreen, 
     GameOverMenu: GameOverScreen,
     HighScoreMenu: HighScoreScreen,

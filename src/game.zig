@@ -22,6 +22,8 @@ const LOCKDELAY = 0.5; // 0.5 s or 500 ms
 const DAS = 10.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 10 frames of delay auto shift
 const DASART = 2.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 2 frames auto repeat rate
 const DART = 3.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 3 frames drop auto repeat rate
+const FLASHT = 8.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 8 frames 4 normal 4 white flashing
+const FADETIME = 33.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 8 frames 4 normal 4 white flashing
 pub const EXITTIME = 3.0;
 const LINESFORLEVELUP = 10;
 const NAMELENGTH = 3;
@@ -273,6 +275,15 @@ pub const Game = struct{
                     self.drawGame();
                     continue :loop self.menu.getState();
                 },
+                .AnimateLockPiece => {
+                    //fadeLine += c.GetFrameTime();
+                    self.drawGame();
+                    self.menu.back();
+                },
+                .AnimateLineClear => {
+                    self.drawGame();
+                    self.menu.back();
+                },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
                     // self.drawGame();
@@ -467,8 +478,7 @@ pub const Game = struct{
                 self.score += 400 * score_level;
             }
         }
-        self.is_t_spin = false;
-        self.is_t_spin_mini = false;
+        self.resetTSpin();
     }
 
     fn increaseLevel(self: *Game) void {
@@ -690,7 +700,9 @@ pub const Game = struct{
         }
 
         switch (self.menu.getState()) {
-            .InGame => {
+            .InGame,
+            .AnimateLockPiece,
+            .AnimateLineClear => {
                 c.ClearBackground(c.BLACK);
                 var x: c_int = screenWidth / 2 - MAXCOLS * squareSize / 2;
                 var y: c_int = screenHeight / 2 - (MAXROWS - 2) * squareSize / 2;
