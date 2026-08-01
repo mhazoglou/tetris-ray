@@ -11,6 +11,7 @@
     "exit": 256
   },
   "ghost_piece": true,
+  "music_filename": "resources/theme_A.mp3",
   "master_volume": 1,
   "music_volume": 1,
   "sfx_volume": 1

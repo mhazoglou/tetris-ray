@@ -23,8 +23,8 @@ const DAS = 10.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 10 frames o
 const DASART = 2.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 2 frames auto repeat rate
 const DART = 3.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 3 frames drop auto repeat rate
 const FLASHT = 8.0 / @as(comptime_float, @floatFromInt(FRAMERATE)); // 8 frames 4 normal 4 white flashing
-const FADETIME = 0.5; // 8 frames 4 normal 4 white flashing
-pub const EXITTIME = 3.0;
+const FADETIME = 0.25; // animate flash for a quarter second
+pub const EXITTIME = 2.0;
 const LINESFORLEVELUP = 10;
 const NAMELENGTH = 3;
 
@@ -128,7 +128,7 @@ pub const Game = struct{
         defer c.UnloadFont(font);
 
         c.InitAudioDevice(); // Initialize audio device
-        var music = c.LoadMusicStream("resources/theme_A.mp3");
+        var music = c.LoadMusicStream(self.settings.music_filename);
         const rot_sound = c.LoadSound("resources/Rotate_Piece_Sound_Effect.mp3");
         const lock_sound = c.LoadSound("resources/se_game_landing.wav");
         const sdrop_sound = c.LoadSound("resources/se_game_softdrop.wav");
@@ -196,6 +196,7 @@ pub const Game = struct{
                     }
                     if (c.IsKeyPressed(self.settings.imap.@"hard drop")) {
                         var cells: u64 = 0; 
+                        c.PlaySound(hdrop_sound);
                         while(!self.downBlocked()) {
                             self.active_tetramino.move_down();
                             cells += 1;
@@ -205,7 +206,6 @@ pub const Game = struct{
                             self.running = !self.spawnTetramino();
                         }
                         self.score += 2 * cells;
-                        c.PlaySound(hdrop_sound);
                         self.resetTSpin();
                     }
                     if (c.IsKeyPressed(self.settings.imap.hold)) {
@@ -275,15 +275,8 @@ pub const Game = struct{
                     self.drawGame();
                     continue :loop self.menu.getState();
                 },
-                .AnimateLockPiece => {
-                    //fadeLine += c.GetFrameTime();
-                    self.drawGame();
-                    self.menu.back();
-                },
-                .AnimateLineClear => {
-                    self.drawGame();
-                    self.menu.back();
-                },
+                .AnimateLockPiece,
+                .AnimateLineClear => unreachable,
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
                     // self.drawGame();
@@ -312,7 +305,7 @@ pub const Game = struct{
                 .ChangeMusic => |str| {
                     music = c.LoadMusicStream(str);
                     c.PlayMusicStream(music);
-                    c.UpdateMusicStream(music);
+                    self.settings.music_filename = str;
                     self.menu.back();
                     continue :loop self.menu.getState();
                 },
@@ -395,8 +388,8 @@ pub const Game = struct{
             self.timer_lock += c.GetFrameTime();
             const lock_elapsed = self.timer_lock >= LOCKDELAY;
             if (lock_elapsed) {
-                self.lockTetramino();
                 c.PlaySound(lock_sound);
+                self.lockTetramino();
                 self.running = !self.spawnTetramino();
                 self.in_lock_delay = false;
             }
@@ -436,12 +429,18 @@ pub const Game = struct{
             }
         }
 
+        const draw_ghost_piece = self.settings.ghost_piece;
         if (idx == 0) {
             self.menu.push(.AnimateLockPiece);
         } else {
             self.menu.push(.AnimateLineClear);
         }
-
+        
+        // I could be introducing a bug by altering the game state
+        // and turning off the ghost animation here, if they exit
+        // it can save the ghost being turn off without the user
+        // ever doing that themselves
+        self.settings.ghost_piece = false;
         var timer_fade: f32 = 0;
         sw: switch (self.menu.getState()) {
             .AnimateLineClear => {
@@ -463,9 +462,32 @@ pub const Game = struct{
                 self.drawGame();
                 continue :sw self.menu.getState();
             },
-            .AnimateLockPiece => {},
+            .AnimateLockPiece => {
+                timer_fade += c.GetFrameTime();
+                if (@mod(timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+                    for (block_pos_arr) |block_pos| {
+                        const row = @as(usize, @intCast(block_pos[0]));
+                        const col = @as(usize, @intCast(block_pos[1]));
+                        self.state.update(row, col, true, self.active_tetramino.get_color());
+                    } 
+                } else {
+                    for (block_pos_arr) |block_pos| {
+                        const row = @as(usize, @intCast(block_pos[0]));
+                        const col = @as(usize, @intCast(block_pos[1]));
+                        self.state.update(row, col, true, c.RAYWHITE);
+                    } 
+                }
+                if (timer_fade > FADETIME) {
+                    self.in_lock_delay = false;
+                    self.menu.back();
+                    break :sw;
+                }
+                self.drawGame();
+                continue :sw self.menu.getState();
+            },
             else => unreachable,
         }
+        self.settings.ghost_piece = draw_ghost_piece;
 
         std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
         for (0..idx) |i| {
@@ -740,15 +762,18 @@ pub const Game = struct{
 
                 const controller: c_int = x;
 
+                const row_pos = switch (active_tetramino) {
+                    .I, .J, .L, .O, .S, .T, .Z => |piece| piece.row, 
+                };
                 var blocks_pos = active_tetramino.get_blocks();
+                for (&blocks_pos) |*block| {
+                    block.*[0] += MAXROWS - row_pos - 1;
+                }
                 if (self.settings.ghost_piece) {
-                    while (!state.checkOverlap(blocks_pos)) {
+                    while (state.checkOverlap(blocks_pos)) {
                         for (&blocks_pos) |*block| {
-                            block.*[0] += 1;
+                            block.*[0] -= 1;
                         }
-                    }
-                    for (&blocks_pos) |*block| {
-                        block.*[0] -= 1;
                     }
                 }
                 const tetra_color = active_tetramino.get_color();
@@ -1199,6 +1224,7 @@ pub const empty_high_score: HighScore = .{
 pub const Settings = struct{
     imap: InputMapping,
     ghost_piece: bool,
+    music_filename: [:0]const u8,
     master_volume: f32,
     music_volume: f32,
     sfx_volume: f32,
@@ -1233,6 +1259,7 @@ pub const Settings = struct{
 pub const default_settings: Settings = .{
     .imap = default_map,
     .ghost_piece = true,
+    .music_filename = "resources/theme_A.mp3",
     .master_volume = 1.0,
     .music_volume = 1.0,
     .sfx_volume = 1.0,
