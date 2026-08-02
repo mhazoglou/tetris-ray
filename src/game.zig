@@ -44,6 +44,7 @@ pub const Game = struct{
     timer_lock: f64,
     timer_drop: f64,
     timer_exit: f64,
+    timer_fade: f32,
     in_lock_delay: bool,
     is_t_spin: bool,
     is_t_spin_mini: bool,
@@ -77,6 +78,7 @@ pub const Game = struct{
             .timer_lock = 0.0,
             .timer_drop = 0.0,
             .timer_exit = 0.0,
+            .timer_fade = 0.0,
             .in_lock_delay = false,
             .is_t_spin = false,
             .is_t_spin_mini = false,
@@ -104,6 +106,7 @@ pub const Game = struct{
         self.timer_lock = 0.0;
         self.timer_drop = 0.0;
         self.timer_exit = 0.0;
+        self.timer_fade = 0.0;
         self.in_lock_delay = false;
         self.is_t_spin = false;
         self.is_t_spin_mini = false;
@@ -189,8 +192,10 @@ pub const Game = struct{
                             self.score += 1;
                             self.timer_drop = 0;
                             c.PlaySound(sdrop_sound);
-                        } else {
-                            self.lockDelay(lock_sound);
+                        } else if (self.downBlocked()){
+                            //self.lockDelay(lock_sound);
+                            self.lockTetramino();
+                            c.PlaySound(lock_sound);
                         }
                         self.resetTSpin();
                     }
@@ -203,7 +208,6 @@ pub const Game = struct{
                         } else {
                             self.lockTetramino();
                             c.PlaySound(lock_sound);
-                            self.running = !self.spawnTetramino();
                         }
                         self.score += 2 * cells;
                         self.resetTSpin();
@@ -275,8 +279,64 @@ pub const Game = struct{
                     self.drawGame();
                     continue :loop self.menu.getState();
                 },
-                .AnimateLockPiece,
-                .AnimateLineClear => unreachable,
+                .AnimateLineClear => |row_full_arr| {
+                    if (c.IsKeyPressed(self.settings.imap.pause)) {
+                        self.menu.push(.{ .PauseMenu = menu.pauseScreen });
+                    }
+                    var idx: usize = 0;
+                    for (row_full_arr) |row| {
+                        if (row > MAXROWS) {
+                            break;
+                        }
+                        idx += 1;
+                    }
+                    self.timer_fade += c.GetFrameTime();
+                    if (@mod(self.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+                        for (row_full_arr[0..idx]) |row| {
+                            self.state.setRowColor(row, c.RAYWHITE);
+                        } 
+                    } else {
+                        for (row_full_arr[0..idx]) |row| {
+                            self.state.setRowColor(row, c.BLACK);
+                        }
+                    }
+                    if (self.timer_fade > FADETIME) {
+                        self.in_lock_delay = false;
+                        self.scoreAndClearLines();
+                        self.menu.back();
+                        self.timer_fade = 0;
+                    }
+                    self.drawGame();
+                    continue :loop self.menu.getState();
+                },
+                .AnimateLockPiece => {
+                    if (c.IsKeyPressed(self.settings.imap.pause)) {
+                        self.menu.push(.{ .PauseMenu = menu.pauseScreen });
+                    }
+                    const block_pos_arr = self.active_tetramino.get_blocks();
+                    self.timer_fade += c.GetFrameTime();
+                    if (@mod(self.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+                        for (block_pos_arr) |block_pos| {
+                            const row = @as(usize, @intCast(block_pos[0]));
+                            const col = @as(usize, @intCast(block_pos[1]));
+                            self.state.update(row, col, true, self.active_tetramino.get_color());
+                        } 
+                    } else {
+                        for (block_pos_arr) |block_pos| {
+                            const row = @as(usize, @intCast(block_pos[0]));
+                            const col = @as(usize, @intCast(block_pos[1]));
+                            self.state.update(row, col, true, c.RAYWHITE);
+                        } 
+                    }
+                    if (self.timer_fade > FADETIME) {
+                        self.in_lock_delay = false;
+                        self.scoreAndClearLines();
+                        self.menu.back();
+                        self.timer_fade = 0;
+                    }
+                    self.drawGame();
+                    continue :loop self.menu.getState();
+                },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
                     // self.drawGame();
@@ -388,10 +448,8 @@ pub const Game = struct{
             self.timer_lock += c.GetFrameTime();
             const lock_elapsed = self.timer_lock >= LOCKDELAY;
             if (lock_elapsed) {
-                c.PlaySound(lock_sound);
                 self.lockTetramino();
-                self.running = !self.spawnTetramino();
-                self.in_lock_delay = false;
+                c.PlaySound(lock_sound);
             }
         }
     }
@@ -429,69 +487,33 @@ pub const Game = struct{
             }
         }
 
-        const draw_ghost_piece = self.settings.ghost_piece;
         if (idx == 0) {
             self.menu.push(.AnimateLockPiece);
         } else {
-            self.menu.push(.AnimateLineClear);
+            self.menu.push(.{ .AnimateLineClear = row_full_arr });
         }
+        std.debug.print("menu state: {any}\n", .{self.menu.getState()} );
+    }
         
-        // I could be introducing a bug by altering the game state
-        // and turning off the ghost animation here, if they exit
-        // it can save the ghost being turn off without the user
-        // ever doing that themselves
-        self.settings.ghost_piece = false;
-        var timer_fade: f32 = 0;
-        sw: switch (self.menu.getState()) {
-            .AnimateLineClear => {
-                timer_fade += c.GetFrameTime();
-                if (@mod(timer_fade, FLASHT) > (0.5 * FLASHT) ) {
-                    for (row_full_arr[0..idx]) |row| {
-                        self.state.setRowColor(row, c.RAYWHITE);
-                    } 
-                } else {
-                    for (row_full_arr[0..idx]) |row| {
-                        self.state.setRowColor(row, c.BLACK);
+    fn scoreAndClearLines(self: *Game) void {
+        var idx: usize = 0;
+        const row_full_arr: []const usize = switch (self.menu.getState()) {
+            .AnimateLineClear => |row_arr| blk: {
+                for (row_arr) |row| {
+                    if (row > MAXROWS) {
+                        break :blk row_arr[0..idx];
                     }
+                    idx += 1;
                 }
-                if (timer_fade > FADETIME) {
-                    self.in_lock_delay = false;
-                    self.menu.back();
-                    break :sw;
-                }
-                self.drawGame();
-                continue :sw self.menu.getState();
+                unreachable;
             },
-            .AnimateLockPiece => {
-                timer_fade += c.GetFrameTime();
-                if (@mod(timer_fade, FLASHT) > (0.5 * FLASHT) ) {
-                    for (block_pos_arr) |block_pos| {
-                        const row = @as(usize, @intCast(block_pos[0]));
-                        const col = @as(usize, @intCast(block_pos[1]));
-                        self.state.update(row, col, true, self.active_tetramino.get_color());
-                    } 
-                } else {
-                    for (block_pos_arr) |block_pos| {
-                        const row = @as(usize, @intCast(block_pos[0]));
-                        const col = @as(usize, @intCast(block_pos[1]));
-                        self.state.update(row, col, true, c.RAYWHITE);
-                    } 
-                }
-                if (timer_fade > FADETIME) {
-                    self.in_lock_delay = false;
-                    self.menu.back();
-                    break :sw;
-                }
-                self.drawGame();
-                continue :sw self.menu.getState();
-            },
+            .AnimateLockPiece => &.{},
             else => unreachable,
-        }
-        self.settings.ghost_piece = draw_ghost_piece;
-
-        std.mem.sort(usize, &row_full_arr, {}, comptime std.sort.asc(usize));
-        for (0..idx) |i| {
-            self.state.shiftRowsDown(row_full_arr[i]);
+        };
+        std.debug.print("rows to clear: {any}\n", .{row_full_arr} );
+        //std.mem.sort(usize, row_full_arr, {}, comptime std.sort.asc(usize));
+        for (row_full_arr) |row| {
+            self.state.shiftRowsDown(row);
         }
 
         self.lines_cleared += idx;
@@ -531,6 +553,7 @@ pub const Game = struct{
                 self.score += 400 * score_level;
             }
         }
+        self.running = !self.spawnTetramino();
         self.resetTSpin();
     }
 

@@ -3,7 +3,7 @@ const Game = @import("game.zig").Game;
 const EXITTIME = @import("game.zig").EXITTIME;
 const c = @import("c");
 
-const DEPTH = 7;
+const DEPTH = 8;
 
 const MenuState = union(enum) {
     StartMenu: StartScreen,
@@ -13,7 +13,7 @@ const MenuState = union(enum) {
     ControlsMenu: ControlsScreen,
     InGame,
     AnimateLockPiece,
-    AnimateLineClear,
+    AnimateLineClear: [4]usize,
     PauseMenu: PauseScreen, 
     GameOverMenu: GameOverScreen,
     HighScoreMenu: HighScoreScreen,
