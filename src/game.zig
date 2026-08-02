@@ -762,18 +762,15 @@ pub const Game = struct{
 
                 const controller: c_int = x;
 
-                const row_pos = switch (active_tetramino) {
-                    .I, .J, .L, .O, .S, .T, .Z => |piece| piece.row, 
-                };
                 var blocks_pos = active_tetramino.get_blocks();
-                for (&blocks_pos) |*block| {
-                    block.*[0] += MAXROWS - row_pos - 1;
-                }
                 if (self.settings.ghost_piece) {
-                    while (state.checkOverlap(blocks_pos)) {
+                    while (!state.checkOverlap(blocks_pos)) {
                         for (&blocks_pos) |*block| {
-                            block.*[0] -= 1;
+                            block.*[0] += 1;
                         }
+                    }
+                    for (&blocks_pos) |*block| {
+                        block.*[0] -= 1;
                     }
                 }
                 const tetra_color = active_tetramino.get_color();
