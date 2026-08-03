@@ -192,10 +192,9 @@ pub const Game = struct{
                             self.score += 1;
                             self.timer_drop = 0;
                             c.PlaySound(sdrop_sound);
-                        } else if (self.downBlocked()){
-                            //self.lockDelay(lock_sound);
-                            self.lockTetramino();
-                            c.PlaySound(lock_sound);
+                        } 
+                        if (self.downBlocked() and !self.in_lock_delay){
+                            self.lockDelay(lock_sound);
                         }
                         self.resetTSpin();
                     }
@@ -325,7 +324,7 @@ pub const Game = struct{
                         for (block_pos_arr) |block_pos| {
                             const row = @as(usize, @intCast(block_pos[0]));
                             const col = @as(usize, @intCast(block_pos[1]));
-                            self.state.update(row, col, true, c.RAYWHITE);
+                            self.state.update(row, col, true, c.Fade(self.active_tetramino.get_color(), 0.5));
                         } 
                     }
                     if (self.timer_fade > FADETIME) {
@@ -339,7 +338,6 @@ pub const Game = struct{
                 },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
-                    // self.drawGame();
                     self.settings.toggleGhost();
                     var screen = menu.settingsScreen;
                     screen.position_y = .two;
@@ -496,19 +494,20 @@ pub const Game = struct{
         
     fn scoreAndClearLines(self: *Game) void {
         var idx: usize = 0;
-        const row_full_arr: []const usize = switch (self.menu.getState()) {
-            .AnimateLineClear => |row_arr| blk: {
-                for (row_arr) |row| {
-                    if (row > MAXROWS) {
-                        break :blk row_arr[0..idx];
+        const row_full_arr: []usize = switch (self.menu.getState()) {
+            .AnimateLineClear => |*row_arr| blk: {
+                for (row_arr) |*row| {
+                    if (row.* > MAXROWS) {
+                        break :blk @constCast(row_arr[0..idx]);
                     }
                     idx += 1;
                 }
-                unreachable;
+                break :blk @constCast(row_arr[0..idx]);
             },
             .AnimateLockPiece => &.{},
             else => unreachable,
         };
+        std.mem.sort(usize, row_full_arr, {}, comptime std.sort.asc(usize));
         for (row_full_arr) |row| {
             self.state.shiftRowsDown(row);
         }
@@ -1123,7 +1122,7 @@ pub fn Matrix(rows: usize, columns: usize) type {
             var empty = true;
             var row: usize = self.rows - 1;
             var col: usize = 0;
-            while (empty and (row >= 0)) : (row -= 1) {
+            while (empty and (row > 0)) : (row -= 1) {
                 while (empty and (col < self.columns)) : (col += 1) {
                     empty = !self.array[row][col];
                 }
