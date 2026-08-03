@@ -492,7 +492,6 @@ pub const Game = struct{
         } else {
             self.menu.push(.{ .AnimateLineClear = row_full_arr });
         }
-        std.debug.print("menu state: {any}\n", .{self.menu.getState()} );
     }
         
     fn scoreAndClearLines(self: *Game) void {
@@ -510,8 +509,6 @@ pub const Game = struct{
             .AnimateLockPiece => &.{},
             else => unreachable,
         };
-        std.debug.print("rows to clear: {any}\n", .{row_full_arr} );
-        //std.mem.sort(usize, row_full_arr, {}, comptime std.sort.asc(usize));
         for (row_full_arr) |row| {
             self.state.shiftRowsDown(row);
         }
@@ -1152,7 +1149,6 @@ pub const InputMapping = struct {
     fn rebind(self: *InputMapping, field: []const u8) c_int {
         const new_key = c.GetKeyPressed();
         var old_key: c_int = undefined;
-        std.debug.print("{s}", .{GetKeyText(new_key)});
         const fields = @typeInfo(InputMapping).@"struct".fields;
         const is_clash, const clash_field = self.checkButtonClash(new_key);
         if (new_key > 0) {
