@@ -138,7 +138,7 @@ pub const Game = struct{
         const hold_sound = c.LoadSound("resources/se_game_hold.wav");
         const hdrop_sound = c.LoadSound("resources/se_game_harddrop.wav");
         var sound_arr: [5]c.Sound = .{
-            rot_sound, lock_sound, sdrop_sound, hold_sound, hdrop_sound
+            rot_sound, hold_sound, lock_sound, sdrop_sound, hdrop_sound
         };
         defer c.UnloadMusicStream(music);
         c.SetMasterVolume(self.settings.master_volume);
@@ -152,119 +152,18 @@ pub const Game = struct{
 
         c.SetTargetFPS(FRAMERATE);
         while (!c.WindowShouldClose()) { // Detect window close button or ESC key
-
-            loop: switch (self.menu.getState()) {
+            switch (self.menu.getState()) {
                 .ExitGame => {
                     break;
                 },
                 .InGame => {
                     c.UpdateMusicStream(music);
-                    if (c.IsKeyPressed(self.settings.imap.left) and !self.leftBlocked()) {
-                        self.active_tetramino.move_left();
-                        self.resetTimerDAS();
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyPressed(self.settings.imap.right) and !self.rightBlocked()) {
-                        self.active_tetramino.move_right();
-                        self.resetTimerDAS();
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyDown(self.settings.imap.left) and !self.leftBlocked()) {
-                        const das_condition = self.lapseDASandAR();
-                        if (das_condition) {
-                            self.active_tetramino.move_left();
-                            self.timer_ar = 0;
-                        }
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyDown(self.settings.imap.right) and !self.rightBlocked()) {
-                        const das_condition = self.lapseDASandAR();
-                        if (das_condition) {
-                            self.active_tetramino.move_right();
-                            self.timer_ar = 0;
-                        }
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyDown(self.settings.imap.@"soft drop")) {
-                        self.timer_drop += c.GetFrameTime();
-                        if (!self.downBlocked() and (self.timer_drop >= DART)) {
-                            self.active_tetramino.move_down();
-                            self.score += 1;
-                            self.timer_drop = 0;
-                            c.PlaySound(sdrop_sound);
-                        } 
-                        if (self.downBlocked() and !self.in_lock_delay){
-                            self.lockDelay(lock_sound);
-                        }
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyPressed(self.settings.imap.@"hard drop")) {
-                        var cells: u64 = 0; 
-                        c.PlaySound(hdrop_sound);
-                        while(!self.downBlocked()) {
-                            self.active_tetramino.move_down();
-                            cells += 1;
-                        } else {
-                            self.lockTetramino();
-                            c.PlaySound(lock_sound);
-                        }
-                        self.score += 2 * cells;
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyPressed(self.settings.imap.hold)) {
-                        self.holdPiece();
-                        c.PlaySound(hold_sound);
-                        self.resetTSpin();
-                    }
-                    if (c.IsKeyPressed(self.settings.imap.@"rotate CW")) {
-                        const opt_wall_kick = self.superRotationSystem(.CW);
-                        if (opt_wall_kick) |wall_kick| {
-                            self.active_tetramino.rot_CW(wall_kick);
-                            c.PlaySound(rot_sound);
-                            self.in_lock_delay = false;
-                            self.isTSpin(wall_kick);
-                        }
-                    }
-                    if (c.IsKeyPressed(self.settings.imap.@"rotate CCW")) {
-                        const opt_wall_kick = self.superRotationSystem(.CCW);
-                        if (opt_wall_kick) |wall_kick| {
-                            self.active_tetramino.rot_CCW(wall_kick);
-                            c.PlaySound(rot_sound);
-                            self.in_lock_delay = false;
-                            self.isTSpin(wall_kick);
-                        }
-                    }
-                    if (c.IsKeyPressed(self.settings.imap.pause)) {
-                        self.menu.push(.{ .PauseMenu = menu.pauseScreen });
-                    }
-
-                    const exit_elapsed = self.timer_exit >= EXITTIME;
-                    if (c.IsKeyUp(self.settings.imap.exit)) {
-                        self.timer_exit = 0.0;
-                    } else {
-                        self.timer_exit += c.GetFrameTime();
-                        if (exit_elapsed) {
-                            self.menu.changeState(.ExitGame);
-                        }
-                    }
-
-                    self.timer_drop += c.GetFrameTime();
-                    const drop_elapsed = self.timer_drop >= self.time_to_drop;
-                    if (drop_elapsed) {
-                        if (!self.downBlocked()) {
-                            self.active_tetramino.move_down();
-                        } else {
-                            self.lockDelay(lock_sound);
-                        }
-                        self.timer_drop = 0;
-                    }
-
-                    if (self.in_lock_delay and self.downBlocked()) {
-                        self.lockDelay(lock_sound);
-                    } else {
-                        self.in_lock_delay = false;
-                    }
-
+                    self.handleExit();
+                    self.handlePause();
+                    self.handleLateralMotion();
+                    self.handleRotations(rot_sound);
+                    self.handleDrop(sound_arr[2..]);
+                    self.handleHold(hold_sound);
                     if (!self.running) {
                         const opt_i = self.high_score.checkHighScore(self.score);
                         if (opt_i) |idx| {
@@ -274,14 +173,9 @@ pub const Game = struct{
                             self.reset();
                         }
                     }
-
                     self.drawGame();
-                    continue :loop self.menu.getState();
                 },
                 .AnimateLineClear => |row_full_arr| {
-                    if (c.IsKeyPressed(self.settings.imap.pause)) {
-                        self.menu.push(.{ .PauseMenu = menu.pauseScreen });
-                    }
                     var idx: usize = 0;
                     for (row_full_arr) |row| {
                         if (row > MAXROWS) {
@@ -289,52 +183,18 @@ pub const Game = struct{
                         }
                         idx += 1;
                     }
-                    self.timer_fade += c.GetFrameTime();
-                    if (@mod(self.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
-                        for (row_full_arr[0..idx]) |row| {
-                            self.state.setRowColor(row, c.RAYWHITE);
-                        } 
-                    } else {
-                        for (row_full_arr[0..idx]) |row| {
-                            self.state.setRowColor(row, c.BLACK);
-                        }
-                    }
-                    if (self.timer_fade > FADETIME) {
-                        self.in_lock_delay = false;
-                        self.scoreAndClearLines();
-                        self.menu.back();
-                        self.timer_fade = 0;
-                    }
-                    self.drawGame();
-                    continue :loop self.menu.getState();
+                    animateFlash(self, flashLines, 
+                        .{self, row_full_arr[0..idx], c.RAYWHITE},
+                        .{self, row_full_arr[0..idx], c.BLACK},
+                    );
                 },
                 .AnimateLockPiece => {
-                    if (c.IsKeyPressed(self.settings.imap.pause)) {
-                        self.menu.push(.{ .PauseMenu = menu.pauseScreen });
-                    }
                     const block_pos_arr = self.active_tetramino.get_blocks();
-                    self.timer_fade += c.GetFrameTime();
-                    if (@mod(self.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
-                        for (block_pos_arr) |block_pos| {
-                            const row = @as(usize, @intCast(block_pos[0]));
-                            const col = @as(usize, @intCast(block_pos[1]));
-                            self.state.update(row, col, true, self.active_tetramino.get_color());
-                        } 
-                    } else {
-                        for (block_pos_arr) |block_pos| {
-                            const row = @as(usize, @intCast(block_pos[0]));
-                            const col = @as(usize, @intCast(block_pos[1]));
-                            self.state.update(row, col, true, c.Fade(self.active_tetramino.get_color(), 0.5));
-                        } 
-                    }
-                    if (self.timer_fade > FADETIME) {
-                        self.in_lock_delay = false;
-                        self.scoreAndClearLines();
-                        self.menu.back();
-                        self.timer_fade = 0;
-                    }
-                    self.drawGame();
-                    continue :loop self.menu.getState();
+                    const color = self.active_tetramino.get_color();
+                    animateFlash(self, flashPiece, 
+                        .{self, block_pos_arr, color},
+                        .{self, block_pos_arr, c.Fade(color, 0.5)},
+                    );
                 },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
@@ -342,7 +202,6 @@ pub const Game = struct{
                     var screen = menu.settingsScreen;
                     screen.position_y = .two;
                     self.menu.back();
-                    continue :loop self.menu.getState();
                 },
                 .RemappingInput => |str| {
                     c.UpdateMusicStream(music);
@@ -358,28 +217,24 @@ pub const Game = struct{
                         self.settings.imap = default_map;
                         self.menu.back();
                     }
-                    continue :loop self.menu.getState();
                 },
                 .ChangeMusic => |str| {
                     music = c.LoadMusicStream(str);
                     c.PlayMusicStream(music);
                     self.settings.music_filename = str;
                     self.menu.back();
-                    continue :loop self.menu.getState();
                 },
                 .ChangeMasterVolume => |val| {
                     self.settings.adjustMaster(val);
                     c.SetMasterVolume(self.settings.master_volume);
                     c.UpdateMusicStream(music);
                     self.menu.back();
-                    continue :loop self.menu.getState();
                 },
                 .ChangeMusicVolume => |val| {
                     self.settings.adjustMusic(val);
                     c.SetMusicVolume(music, self.settings.music_volume);
                     c.UpdateMusicStream(music);
                     self.menu.back();
-                    continue :loop self.menu.getState();
                 },
                 .ChangeSFXVolume => |val| {
                     self.settings.adjustSFX(val);
@@ -389,7 +244,6 @@ pub const Game = struct{
                     c.PlaySound(rot_sound);
                     c.UpdateMusicStream(music);
                     self.menu.back();
-                    continue :loop self.menu.getState();
                 },
                 .EnterName => |idx| {
                     c.UpdateMusicStream(music);
@@ -422,7 +276,6 @@ pub const Game = struct{
                     enter_name = ("_" ** NAMELENGTH).*;
                     self.menu.changeState(.{ .GameOverMenu = menu.gameOverScreen });
                     self.reset();
-                    continue :loop self.menu.getState();
                 },
                 else => {
                     c.UpdateMusicStream(music);
@@ -432,9 +285,136 @@ pub const Game = struct{
                         .StartMenu => self.reset(),
                         else => {},
                     } 
-                    continue :loop self.menu.getState();
                 },
             }
+        }
+    }
+
+    fn handleLateralMotion(self: *Game) void{
+        if (c.IsKeyDown(self.settings.imap.left) and 
+            c.IsKeyDown(self.settings.imap.right)) {
+            self.resetTimerDAS();
+        }
+        if (c.IsKeyPressed(self.settings.imap.left) and !self.leftBlocked()) {
+            self.active_tetramino.move_left();
+            self.resetTimerDAS();
+            self.resetTSpin();
+        }
+        if (c.IsKeyPressed(self.settings.imap.right) and !self.rightBlocked()) {
+            self.active_tetramino.move_right();
+            self.resetTimerDAS();
+            self.resetTSpin();
+        }
+        if (c.IsKeyDown(self.settings.imap.left) and !self.leftBlocked()) {
+            const das_condition = self.lapseDASandAR();
+            if (das_condition) {
+                self.active_tetramino.move_left();
+                self.timer_ar = 0;
+            }
+            self.resetTSpin();
+        }
+        if (c.IsKeyDown(self.settings.imap.right) and !self.rightBlocked()) {
+            const das_condition = self.lapseDASandAR();
+            if (das_condition) {
+                self.active_tetramino.move_right();
+                self.timer_ar = 0;
+            }
+            self.resetTSpin();
+        }
+    }
+
+    fn handleRotations(self: *Game, rot_sound: c.Sound) void {
+        if (c.IsKeyPressed(self.settings.imap.@"rotate CW")) {
+            self.handleRotationsHelper(rot_sound, .CW);
+        }
+        if (c.IsKeyPressed(self.settings.imap.@"rotate CCW")) {
+            self.handleRotationsHelper(rot_sound, .CCW);
+        }
+    }
+
+    fn handleRotationsHelper(self: *Game, rot_sound: c.Sound, 
+        rot: Rotation) void {
+        const opt_wall_kick = self.superRotationSystem(rot);
+        if (opt_wall_kick) |wall_kick| {
+            self.active_tetramino.rot_CW(wall_kick);
+            c.PlaySound(rot_sound);
+            self.in_lock_delay = false;
+            self.isTSpin(wall_kick);
+        }
+    }
+
+    fn handleHold(self: *Game, hold_sound: c.Sound) void {
+        if (c.IsKeyPressed(self.settings.imap.hold)) {
+            self.holdPiece();
+            c.PlaySound(hold_sound);
+            self.resetTSpin();
+        }
+    }
+
+    fn handlePause(self: *Game) void {
+        if (c.IsKeyPressed(self.settings.imap.pause)) {
+            self.menu.push(.{ .PauseMenu = menu.pauseScreen });
+        }
+    }
+
+    fn handleExit(self: *Game) void {
+        const exit_elapsed = self.timer_exit >= EXITTIME;
+        if (c.IsKeyUp(self.settings.imap.exit)) {
+            self.timer_exit = 0.0;
+        } else {
+            self.timer_exit += c.GetFrameTime();
+            if (exit_elapsed) {
+                self.menu.changeState(.ExitGame);
+            }
+        }
+    }
+
+    fn handleDrop(self: *Game, sounds: []c.Sound) void {
+        const lock_sound = sounds[0];
+        const sdrop_sound = sounds[1];
+        const hdrop_sound = sounds[2];
+        if (c.IsKeyDown(self.settings.imap.@"soft drop")) {
+            self.timer_drop += c.GetFrameTime();
+            if (!self.downBlocked() and (self.timer_drop >= DART)) {
+                self.active_tetramino.move_down();
+                self.score += 1;
+                self.timer_drop = 0;
+                c.PlaySound(sdrop_sound);
+            } 
+            if (self.downBlocked() and !self.in_lock_delay){
+                self.lockDelay(lock_sound);
+            }
+            self.resetTSpin();
+        }
+        if (c.IsKeyPressed(self.settings.imap.@"hard drop")) {
+            var cells: u64 = 0; 
+            c.PlaySound(hdrop_sound);
+            while(!self.downBlocked()) {
+                self.active_tetramino.move_down();
+                cells += 1;
+            } else {
+                self.lockTetramino();
+                c.PlaySound(lock_sound);
+            }
+            self.score += 2 * cells;
+            self.resetTSpin();
+        }
+
+        self.timer_drop += c.GetFrameTime();
+        const drop_elapsed = self.timer_drop >= self.time_to_drop;
+        if (drop_elapsed) {
+            if (!self.downBlocked()) {
+                self.active_tetramino.move_down();
+            } else {
+                self.lockDelay(lock_sound);
+            }
+            self.timer_drop = 0;
+        }
+
+        if (self.in_lock_delay and self.downBlocked()) {
+            self.lockDelay(lock_sound);
+        } else {
+            self.in_lock_delay = false;
         }
     }
 
@@ -1390,3 +1370,36 @@ pub fn GetKeyText(key: c_int) [:0]const u8 {
         else => "",
     };
 }
+
+fn flashPiece(game: *Game, block_pos_arr: [4][2]isize, color: c.Color) void {
+    for (block_pos_arr) |block_pos| {
+        const row = @as(usize, @intCast(block_pos[0]));
+        const col = @as(usize, @intCast(block_pos[1]));
+        game.state.update(row, col, true, color);
+    }
+}
+
+fn flashLines(game: *Game, row_full: []const usize, color:c. Color) void { 
+    for (row_full) |row| {
+        game.state.setRowColor(row, color);
+    } 
+}
+
+fn animateFlash(game: *Game, comptime func: anytype, 
+    args1: anytype, args2: anytype) void {
+    game.handlePause();
+    game.timer_fade += c.GetFrameTime();
+    if (@mod(game.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+        @call(.auto, func, args1);
+    } else {
+        @call(.auto, func, args2);
+    }
+    if (game.timer_fade > FADETIME) {
+        game.in_lock_delay = false;
+        game.scoreAndClearLines();
+        game.menu.back();
+        game.timer_fade = 0;
+    }
+    game.drawGame();
+}
+
