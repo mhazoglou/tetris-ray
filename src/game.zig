@@ -381,9 +381,6 @@ pub const Game = struct{
                 self.timer_drop = 0;
                 c.PlaySound(sdrop_sound);
             } 
-            if (self.downBlocked() and !self.in_lock_delay){
-                self.lockDelay(lock_sound);
-            }
             self.resetTSpin();
         }
         if (c.IsKeyPressed(self.settings.imap.@"hard drop")) {
@@ -411,7 +408,7 @@ pub const Game = struct{
             self.timer_drop = 0;
         }
 
-        if (self.in_lock_delay and self.downBlocked()) {
+        if (self.downBlocked() and self.in_lock_delay) {
             self.lockDelay(lock_sound);
         } else {
             self.in_lock_delay = false;
@@ -466,10 +463,14 @@ pub const Game = struct{
         }
 
         if (idx == 0) {
-            self.menu.push(.AnimateLockPiece);
+            switch (self.menu.getState()) {
+                .AnimateLineClear, .AnimateLockPiece => {},
+                else => self.menu.push(.AnimateLockPiece)
+            }
         } else {
             self.menu.push(.{ .AnimateLineClear = row_full_arr });
         }
+        std.debug.print("Menu State: {any}\n", .{self.menu.getState()});
     }
         
     fn scoreAndClearLines(self: *Game) void {
@@ -529,7 +530,10 @@ pub const Game = struct{
                 self.score += 400 * score_level;
             }
         }
+        std.debug.print("Pre-spawn active tetramino: {any}\n", .{self.active_tetramino});
         self.running = !self.spawnTetramino();
+        self.in_lock_delay = false;
+        std.debug.print("Post-spawn active tetramino: {any}\n", .{self.active_tetramino});
         self.resetTSpin();
     }
 
@@ -597,6 +601,7 @@ pub const Game = struct{
 
     fn downBlocked(self: *Game) bool {
         const block_pos_arr = self.active_tetramino.get_blocks();
+        std.debug.print("Block Positions: {any}\n", .{block_pos_arr});
         var any_block = false; 
         for (block_pos_arr) |block_pos| {
             const row = block_pos[0];
@@ -674,8 +679,7 @@ pub const Game = struct{
                 ];
                 const bottom_diags = ll_diag and lr_diag; 
                 if (!bottom_diags) {
-                    self.is_t_spin = false;
-                    self.is_t_spin_mini = false;
+                    self.resetTSpin();
                     return;
                 }
                 
@@ -713,8 +717,7 @@ pub const Game = struct{
                 }
             },
             else => {
-                self.is_t_spin = false;
-                self.is_t_spin_mini = false;
+                self.resetTSpin();
             },
         }
     }
@@ -1086,11 +1089,11 @@ pub fn Matrix(rows: usize, columns: usize) type {
             var any_overlap = false; 
             for (block_pos) |pos| {
                 const col = pos[1];
-                if ((col >= MAXCOLS) or (col < 0)) {
+                if ((col >= columns) or (col < 0)) {
                     return true;
                 }
                 const row = pos[0];
-                if ((row >= MAXROWS) or (row < 0)) {
+                if ((row >= rows) or (row < 0)) {
                     return true;
                 }
                 any_overlap = any_overlap or self.array[@as(usize, @intCast(row))][@as(usize, @intCast(col))];
