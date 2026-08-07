@@ -195,6 +195,7 @@ pub const Game = struct{
                         .{self, block_pos_arr, color},
                         .{self, block_pos_arr, c.Fade(color, 0.5)},
                     );
+                    flashPiece(self, block_pos_arr, color);
                 },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
@@ -336,7 +337,10 @@ pub const Game = struct{
         rot: Rotation) void {
         const opt_wall_kick = self.superRotationSystem(rot);
         if (opt_wall_kick) |wall_kick| {
-            self.active_tetramino.rot_CW(wall_kick);
+            switch (rot) {
+                .CW => self.active_tetramino.rot_CW(wall_kick),
+                .CCW => self.active_tetramino.rot_CCW(wall_kick),
+            }
             c.PlaySound(rot_sound);
             self.in_lock_delay = false;
             self.isTSpin(wall_kick);
@@ -470,7 +474,6 @@ pub const Game = struct{
         } else {
             self.menu.push(.{ .AnimateLineClear = row_full_arr });
         }
-        std.debug.print("Menu State: {any}\n", .{self.menu.getState()});
     }
         
     fn scoreAndClearLines(self: *Game) void {
@@ -530,10 +533,8 @@ pub const Game = struct{
                 self.score += 400 * score_level;
             }
         }
-        std.debug.print("Pre-spawn active tetramino: {any}\n", .{self.active_tetramino});
         self.running = !self.spawnTetramino();
         self.in_lock_delay = false;
-        std.debug.print("Post-spawn active tetramino: {any}\n", .{self.active_tetramino});
         self.resetTSpin();
     }
 
@@ -601,7 +602,6 @@ pub const Game = struct{
 
     fn downBlocked(self: *Game) bool {
         const block_pos_arr = self.active_tetramino.get_blocks();
-        std.debug.print("Block Positions: {any}\n", .{block_pos_arr});
         var any_block = false; 
         for (block_pos_arr) |block_pos| {
             const row = block_pos[0];
@@ -744,8 +744,6 @@ pub const Game = struct{
         }
 
 
-        const state = self.state;
-        const active_tetramino = self.active_tetramino;
         c.BeginDrawing();
 
         if (c.IsKeyDown(self.settings.imap.exit)) {
@@ -755,77 +753,8 @@ pub const Game = struct{
         }
 
         switch (self.menu.getState()) {
-            .InGame,
-            .AnimateLockPiece,
-            .AnimateLineClear => {
-                c.ClearBackground(c.BLACK);
-                var x: c_int = screenWidth / 2 - MAXCOLS * squareSize / 2;
-                var y: c_int = screenHeight / 2 - (MAXROWS - 2) * squareSize / 2;
-
-                const controller: c_int = x;
-
-                var blocks_pos = active_tetramino.get_blocks();
-                if (self.settings.ghost_piece) {
-                    while (!state.checkOverlap(blocks_pos)) {
-                        for (&blocks_pos) |*block| {
-                            block.*[0] += 1;
-                        }
-                    }
-                    for (&blocks_pos) |*block| {
-                        block.*[0] -= 1;
-                    }
-                }
-                const tetra_color = active_tetramino.get_color();
-                for (2..MAXROWS) |row| {
-                    for (0..state.columns) |col| {
-                        if (state.array[row][col]) {
-                            c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
-                        } else if (active_tetramino.isOccupied(row, col)) {
-                            c.DrawRectangle(x, y, squareSize, squareSize, tetra_color);
-                        }
-                        if (self.settings.ghost_piece) {
-                            for (blocks_pos) |block| {
-                                if ((block[0] == row) and (block[1] == col)) {
-                                    c.DrawRectangle(
-                                        x, y, squareSize, squareSize, c.Fade(tetra_color, 0.3)
-                                    );
-                                }
-                            }
-                        }
-                        c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
-                        c.DrawLine(x, y, x, y + squareSize, c.LIGHTGRAY );
-                        c.DrawLine(x + squareSize, y, x + squareSize, y + squareSize, c.LIGHTGRAY );
-                        c.DrawLine(x, y + squareSize, x + squareSize, y + squareSize, c.LIGHTGRAY );
-                        x += squareSize;
-                    }
-                    x = controller;
-                    y += squareSize;
-                }
-                x = screenWidth / 2 + MAXCOLS * squareSize;
-                y = screenHeight / 4;
-
-                const controler: c_int = x;
-                const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
-                drawPiece(next, &x, &y);
-
-                x = screenWidth / 2 - MAXCOLS * squareSize - 6 * squareSize;
-                y = screenHeight / 4;
-                var x_float: f32 = @floatFromInt(x);
-                var y_float: f32 = @floatFromInt(y);
-                c.DrawTextEx(font, "HOLD:", .{ .x = x_float, .y = y_float - squareSize}, item_font_size, spacing, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("COMBO:      % 6i", self.combo orelse 0), .{ .x = x_float, .y = y_float + 7 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
-                if (self.hold_tetramino) |hold| {
-                    drawPiece(hold, &x, &y);
-                }
-                y_float = screenHeight / 4;
-
-                x_float = @floatFromInt(controler);
-                y_float += 3 * squareSize;
-                c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 4 * squareSize }, item_font_size, spacing, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 4 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, item_font_size, spacing, c.LIGHTGRAY);
-                c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 8 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
-            },
+            .InGame => drawPlayArea(self, self.settings.ghost_piece),
+            .AnimateLockPiece, .AnimateLineClear => drawPlayArea(self, false),
             .StartMenu, 
             .SettingsMenu, 
             .PauseMenu,
@@ -1029,6 +958,77 @@ pub const Game = struct{
         }
     }
 
+    fn drawPlayArea(self: Game, draw_ghost: bool) void {
+        const state = self.state;
+        const active_tetramino = self.active_tetramino;
+        c.ClearBackground(c.BLACK);
+        var x: c_int = screenWidth / 2 - MAXCOLS * squareSize / 2;
+        var y: c_int = screenHeight / 2 - (MAXROWS - 2) * squareSize / 2;
+
+        const controller: c_int = x;
+
+        var blocks_pos = active_tetramino.get_blocks();
+        if (draw_ghost) {
+            while (!state.checkOverlap(blocks_pos)) {
+                for (&blocks_pos) |*block| {
+                    block.*[0] += 1;
+                }
+            }
+            for (&blocks_pos) |*block| {
+                block.*[0] -= 1;
+            }
+        }
+        const tetra_color = active_tetramino.get_color();
+        for (2..MAXROWS) |row| {
+            for (0..state.columns) |col| {
+                if (state.array[row][col]) {
+                    c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
+                } else if (active_tetramino.isOccupied(row, col)) {
+                    c.DrawRectangle(x, y, squareSize, squareSize, tetra_color);
+                }
+                if (draw_ghost) {
+                    for (blocks_pos) |block| {
+                        if ((block[0] == row) and (block[1] == col)) {
+                            c.DrawRectangle(
+                                x, y, squareSize, squareSize, c.Fade(tetra_color, 0.3)
+                            );
+                        }
+                    }
+                }
+                c.DrawLine(x, y, x + squareSize, y, c.LIGHTGRAY );
+                c.DrawLine(x, y, x, y + squareSize, c.LIGHTGRAY );
+                c.DrawLine(x + squareSize, y, x + squareSize, y + squareSize, c.LIGHTGRAY );
+                c.DrawLine(x, y + squareSize, x + squareSize, y + squareSize, c.LIGHTGRAY );
+                x += squareSize;
+            }
+            x = controller;
+            y += squareSize;
+        }
+        x = screenWidth / 2 + MAXCOLS * squareSize;
+        y = screenHeight / 4;
+
+        const controler: c_int = x;
+        const next = self.tetramino_seq[(self.tetramino_num + 1) % self.tetramino_seq.len];
+        drawPiece(next, &x, &y);
+
+        x = screenWidth / 2 - MAXCOLS * squareSize - 6 * squareSize;
+        y = screenHeight / 4;
+        var x_float: f32 = @floatFromInt(x);
+        var y_float: f32 = @floatFromInt(y);
+        c.DrawTextEx(font, "HOLD:", .{ .x = x_float, .y = y_float - squareSize}, item_font_size, spacing, c.LIGHTGRAY);
+        c.DrawTextEx(font, c.TextFormat("COMBO:      % 6i", self.combo orelse 0), .{ .x = x_float, .y = y_float + 7 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
+        if (self.hold_tetramino) |hold| {
+            drawPiece(hold, &x, &y);
+        }
+        y_float = screenHeight / 4;
+
+        x_float = @floatFromInt(controler);
+        y_float += 3 * squareSize;
+        c.DrawTextEx(font, "NEXT:", .{ .x = x_float, .y = y_float - 4 * squareSize }, item_font_size, spacing, c.LIGHTGRAY);
+        c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 4 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
+        c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, item_font_size, spacing, c.LIGHTGRAY);
+        c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 8 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
+    }
 
 };
 
