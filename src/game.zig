@@ -48,6 +48,7 @@ pub const Game = struct{
     in_lock_delay: bool,
     is_t_spin: bool,
     is_t_spin_mini: bool,
+    is_diff_lc: bool,
     lines_cleared: u64,
     level_sub_one: u64, // level minus one
     score: u64,
@@ -82,6 +83,7 @@ pub const Game = struct{
             .in_lock_delay = false,
             .is_t_spin = false,
             .is_t_spin_mini = false,
+            .is_diff_lc = false,
             .lines_cleared = 0,
             .level_sub_one = 0,
             .score = 0,
@@ -110,6 +112,7 @@ pub const Game = struct{
         self.in_lock_delay = false;
         self.is_t_spin = false;
         self.is_t_spin_mini = false;
+        self.is_diff_lc = false;
         self.lines_cleared = 0;
         self.level_sub_one = 0;
         self.score = 0;
@@ -472,7 +475,10 @@ pub const Game = struct{
                 else => self.menu.push(.AnimateLockPiece)
             }
         } else {
-            self.menu.push(.{ .AnimateLineClear = row_full_arr });
+            switch (self.menu.getState()) {
+                .AnimateLineClear, .AnimateLockPiece => {},
+                else => self.menu.push(.{ .AnimateLineClear = row_full_arr })
+            }
         }
     }
         
@@ -496,6 +502,19 @@ pub const Game = struct{
             self.state.shiftRowsDown(row);
         }
 
+        var multiplier: u64 = 1;
+        const diff_condition = (idx == 4) or (self.is_t_spin);
+        if (diff_condition) {
+            if (!self.is_diff_lc) {
+                self.is_diff_lc = true;
+            } else {
+                multiplier = 2; // 1.5;
+            }
+        } else {
+            if ((idx > 0) and !self.is_t_spin_mini) {
+                self.is_diff_lc = false;
+            }
+        }
         self.lines_cleared += idx;
         // if it's a perfect line clear you earn extra points
         var score_factor: [4]u64 = undefined;
@@ -514,9 +533,9 @@ pub const Game = struct{
         }
         const score_level = self.level_sub_one + 1;
         if (idx > 0) {
-            self.score += score_factor[idx - 1] * score_level;
+            self.score += score_factor[idx - 1] * multiplier * score_level;
             if (self.combo) |*val| {
-                self.score += 50 * score_level * val.*;
+                self.score += 50 * score_level * multiplier * val.*;
                 val.* += 1;
             } else {
                 self.combo = 0;
@@ -530,7 +549,7 @@ pub const Game = struct{
                 self.score += 100 * score_level;
             }
             if (self.is_t_spin) {
-                self.score += 400 * score_level;
+                self.score += 400 * multiplier * score_level;
             }
         }
         self.running = !self.spawnTetramino();
