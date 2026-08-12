@@ -472,7 +472,10 @@ pub const Game = struct{
                 else => self.menu.push(.AnimateLockPiece)
             }
         } else {
-            self.menu.push(.{ .AnimateLineClear = row_full_arr });
+            switch (self.menu.getState()) {
+                .AnimateLineClear, .AnimateLockPiece => {},
+                else => self.menu.push(.{ .AnimateLineClear = row_full_arr }),
+            }
         }
     }
         
