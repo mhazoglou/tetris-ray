@@ -54,14 +54,30 @@ pub fn build(b: *std.Build) void {
     }
 
     const mod_tests = b.addTest(.{
-        .root_module = mod,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tests.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "c", .module = translate_c.createModule() },
+            },
+        }),
+
     });
+    mod_tests.root_module.linkLibrary(raylib_artifact);
 
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
     const exe_tests = b.addTest(.{
-        .root_module = exe.root_module,
-    });
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tests.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "c", .module = translate_c.createModule() },
+            },
+        }),    });
+    exe_tests.root_module.linkLibrary(raylib_artifact);
 
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
