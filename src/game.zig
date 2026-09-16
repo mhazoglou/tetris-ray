@@ -502,13 +502,13 @@ pub const Game = struct{
             self.state.shiftRowsDown(row);
         }
 
-        var multiplier: u64 = 1;
+        var apply_diff_bonus: bool = false;
         const diff_condition = (idx == 4) or (self.is_t_spin);
         if (diff_condition) {
             if (!self.is_diff_lc) {
                 self.is_diff_lc = true;
             } else {
-                multiplier = 2; // 1.5;
+                apply_diff_bonus = true; // 1.5;
             }
         } else {
             if ((idx > 0) and !self.is_t_spin_mini) {
@@ -533,9 +533,11 @@ pub const Game = struct{
         }
         const score_level = self.level_sub_one + 1;
         if (idx > 0) {
-            self.score += score_factor[idx - 1] * multiplier * score_level;
+            self.score += score_factor[idx - 1] * score_level;
+            self.score += if (apply_diff_bonus) score_factor[idx - 1] * score_level >> 1 else 0;
             if (self.combo) |*val| {
-                self.score += 50 * score_level * multiplier * val.*;
+                self.score += 50 * score_level * val.*;
+                self.score += if (apply_diff_bonus) 50 * score_level * val.* >> 1 else 0;
                 val.* += 1;
             } else {
                 self.combo = 0;
@@ -549,7 +551,8 @@ pub const Game = struct{
                 self.score += 100 * score_level;
             }
             if (self.is_t_spin) {
-                self.score += 400 * multiplier * score_level;
+                self.score += 400 * score_level;
+                self.score += if (apply_diff_bonus) 400 * score_level >> 1 else 0;
             }
         }
         self.running = !self.spawnTetramino();
