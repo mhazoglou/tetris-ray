@@ -777,43 +777,9 @@ pub const Game = struct{
         switch (self.menu.getState()) {
             .InGame => drawPlayArea(self, self.settings.ghost_piece),
             .AnimateLockPiece, .AnimateLineClear => drawPlayArea(self, false),
-            .StartMenu, 
-            .SettingsMenu, 
-            .PauseMenu,
-            .GameOverMenu, 
-            .ThemeSelectMenu,
-            .MusicMenu => |screen| {
-                c.ClearBackground(c.BLACK);
-                const draw_left_x = screenWidth / 6;
-                const draw_right_x = 5 * screenWidth / 6;
-                const block_size = 4 * screenWidth / 18;
-                const draw_top_y = screenHeight / 2 - block_size;
-                c.DrawLine(draw_left_x, draw_top_y, draw_right_x, draw_top_y, c.LIGHTGRAY );
-                c.DrawLine(draw_left_x, draw_top_y, draw_left_x, draw_top_y + block_size, c.LIGHTGRAY );
-                c.DrawLine(draw_right_x, draw_top_y, draw_right_x, draw_top_y + block_size, c.LIGHTGRAY );
-                c.DrawLine(draw_left_x, draw_top_y + block_size, draw_left_x + block_size, draw_top_y + block_size, c.LIGHTGRAY);
-                c.DrawLine(draw_right_x, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + block_size, c.LIGHTGRAY);
-                c.DrawLine(draw_left_x + block_size, draw_top_y + block_size, draw_left_x + block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
-                c.DrawLine(draw_right_x - block_size, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
-                c.DrawLine(draw_left_x + block_size, draw_top_y + 2 * block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
-
-                const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
-                c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - @as(f32, banner_dim.x) / 2, .y = @as(f32, draw_top_y + block_size / 2 - banner_dim.y / 2 )}, banner_font_size, spacing, c.LIGHTGRAY);
-
-                const shift: f32 = 0.5 * @as(f32, @floatFromInt(@intFromEnum(screen.max_position_y) + 1));
-                const len_y: usize = (@intFromEnum(screen.max_position_y) + 1);
-                for (0..len_y) |row| {
-                    const item_dim = c.MeasureTextEx(font, screen.arr_str[row][0], item_font_size, spacing);
-                    const pos_x = @as(f32, @floatFromInt(screenWidth)) / 2 - item_dim.x / 2;
-                    const pos_y = @as(f32, draw_top_y + 3 * block_size / 2 ) + squareSize * (@as(f32, @floatFromInt(row)) - shift);
-                    c.DrawTextEx(font, screen.arr_str[row][0], .{ .x = pos_x, .y = pos_y }, item_font_size, spacing, c.LIGHTGRAY);
-                    if ((@intFromEnum(screen.position_y) == row)) {
-                        const arrow_dim = c.MeasureTextEx(font, ">", item_font_size, spacing);
-                        const arrow_shift_x = 2 * arrow_dim.x;
-                        c.DrawTextEx(font, ">", .{ .x = pos_x - arrow_shift_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
-                    }
-                }
-            },
+            .StartMenu, .SettingsMenu, 
+            .PauseMenu, .GameOverMenu, 
+            .ThemeSelectMenu, .MusicMenu => |screen| drawMenu(self, screen),
             .ControlsMenu => |screen| {
                 c.ClearBackground(c.BLACK);
                 const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
@@ -1050,6 +1016,74 @@ pub const Game = struct{
         c.DrawTextEx(font, c.TextFormat("LINES:      % 6i", self.lines_cleared), .{ .x = x_float, .y = y_float + 4 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
         c.DrawTextEx(font, c.TextFormat("SCORE:      % 6i", self.score), .{ .x = x_float, .y = y_float}, item_font_size, spacing, c.LIGHTGRAY);
         c.DrawTextEx(font, c.TextFormat("LEVEL:      % 6i", self.level_sub_one + 1), .{ .x = x_float, .y = y_float + 8 * squareSize}, item_font_size, spacing, c.LIGHTGRAY);
+    }
+
+    fn drawMenu(self: Game, screen: anytype) void {
+        c.ClearBackground(c.BLACK);
+        const draw_left_x = screenWidth / 6;
+        const draw_right_x = 5 * screenWidth / 6;
+        const block_size = 4 * screenWidth / 18;
+        const draw_top_y = screenHeight / 2 - block_size;
+        c.DrawLine(draw_left_x, draw_top_y, draw_right_x, draw_top_y, c.LIGHTGRAY );
+        c.DrawLine(draw_left_x, draw_top_y, draw_left_x, draw_top_y + block_size, c.LIGHTGRAY );
+        c.DrawLine(draw_right_x, draw_top_y, draw_right_x, draw_top_y + block_size, c.LIGHTGRAY );
+        c.DrawLine(draw_left_x, draw_top_y + block_size, draw_left_x + block_size, draw_top_y + block_size, c.LIGHTGRAY);
+        c.DrawLine(draw_right_x, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + block_size, c.LIGHTGRAY);
+        c.DrawLine(draw_left_x + block_size, draw_top_y + block_size, draw_left_x + block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
+        c.DrawLine(draw_right_x - block_size, draw_top_y + block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
+        c.DrawLine(draw_left_x + block_size, draw_top_y + 2 * block_size, draw_right_x - block_size, draw_top_y + 2 * block_size, c.LIGHTGRAY);
+
+        const banner_dim = c.MeasureTextEx(font, screen.banner, banner_font_size, spacing);
+        c.DrawTextEx(font, screen.banner, .{ .x = @as(f32, @floatFromInt(screenWidth)) / 2 - @as(f32, banner_dim.x) / 2, .y = @as(f32, draw_top_y + block_size / 2 - banner_dim.y / 2 )}, banner_font_size, spacing, c.LIGHTGRAY);
+
+        const shift: f32 = 0.5 * @as(f32, @floatFromInt(@intFromEnum(screen.max_position_y) + 1));
+        const len_y: usize = (@intFromEnum(screen.max_position_y) + 1);
+        for (0..len_y) |row| {
+            const item_dim = c.MeasureTextEx(font, screen.arr_str[row][0], item_font_size, spacing);
+            const pos_x = @as(f32, @floatFromInt(screenWidth)) / 2 - item_dim.x / 2;
+            const pos_y = @as(f32, draw_top_y + 3 * block_size / 2 ) + squareSize * (@as(f32, @floatFromInt(row)) - shift);
+            const underline_y = pos_y + item_dim.y + 1;
+            c.DrawTextEx(font, screen.arr_str[row][0], .{ .x = pos_x, .y = pos_y }, item_font_size, spacing, c.LIGHTGRAY);
+            if ((@intFromEnum(screen.position_y) == row)) {
+                const arrow_dim = c.MeasureTextEx(font, ">", item_font_size, spacing);
+                const arrow_shift_x = 2 * arrow_dim.x;
+                c.DrawTextEx(font, ">", .{ .x = pos_x - arrow_shift_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+            }
+            switch (self.menu.getState()) { 
+                .MusicMenu => switch (row) {
+                    1 => c.DrawLineEx(.{ .x = pos_x, .y = underline_y }, 
+                                      .{ .x = pos_x + self.settings.master_volume * item_dim.x, .y = underline_y }, 
+                                      1,
+                                      c.LIGHTGRAY),
+                    2 => c.DrawLineEx(.{ .x = pos_x, .y = underline_y }, 
+                                      .{ .x = pos_x + self.settings.music_volume * item_dim.x, .y = underline_y }, 
+                                      1,
+                                      c.LIGHTGRAY),
+                    3 => c.DrawLineEx(.{ .x = pos_x, .y = underline_y }, 
+                                      .{ .x = pos_x + self.settings.sfx_volume * item_dim.x, .y = underline_y }, 
+                                      1,
+                                      c.LIGHTGRAY),
+                    else => {},
+                },
+                .SettingsMenu => switch (row) {
+                    2 => {
+                        const on = "ON";
+                        const on_dim = c.MeasureTextEx(font, on, item_font_size, spacing);
+                        if (self.settings.ghost_piece) {
+                            c.DrawTextEx(font, on, .{ .x = pos_x + item_dim.x - on_dim.x, .y = pos_y }, 
+                                item_font_size,
+                                spacing, c.LIGHTGRAY);
+                        } else {
+                            c.DrawTextEx(font, "OFF", .{ .x = pos_x + item_dim.x - on_dim.x, .y = pos_y }, 
+                                item_font_size,
+                                spacing, c.LIGHTGRAY);
+                        }
+                    },
+                    else => {}, 
+                },
+                else => {}
+            }
+        }
     }
 
 };

@@ -116,7 +116,7 @@ pub const settingsScreen = SettingsScreen.init(.three, .zero,
     .{ 
         .{"Music"} ++ .{""} ** 4, 
         .{"Controls"} ++ .{""} ** 4, 
-        .{"Toggle Ghost"} ++ .{""} ** 4,
+        .{"Ghost:    "} ** 5, //.{"Toggle Ghost"} ++ .{""} ** 4,
         .{"Return"} ++ .{""} ** 4,
         .{""} ** 5,
     }, 
