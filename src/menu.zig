@@ -104,81 +104,81 @@ const HighScoreScreen = MenuScreen();
 
 pub const startScreen = StartScreen.init(.three, .zero, 
     .{ 
-        .{"Marathon"} ++ .{""} ** 4, 
-        .{"Settings"} ++ .{""} ** 4, 
-        .{"High Score"} ++ .{""} ** 4,
-        .{"Quit"} ++ .{""} ** 4,
-        .{""} ** 5,
+        .{"Marathon"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Settings"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"High Score"} ++ @as([4][:0]const u8, @splat("")),
+        .{"Quit"} ++ @as([4][:0]const u8, @splat("")),
+        @splat(""),
     }, 
     "TETRIS"
 );
 pub const settingsScreen = SettingsScreen.init(.three, .zero, 
     .{ 
-        .{"Music"} ++ .{""} ** 4, 
-        .{"Controls"} ++ .{""} ** 4, 
-        .{"Ghost:    "} ** 5, //.{"Toggle Ghost"} ++ .{""} ** 4,
-        .{"Return"} ++ .{""} ** 4,
-        .{""} ** 5,
+        .{"Music"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Controls"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Ghost:    "} ++ @as([4][:0]const u8, @splat("")), //.{"Toggle Ghost"} ++ @splat(""),
+        .{"Return"} ++ @as([4][:0]const u8, @splat("")),
+        @splat(""),
     }, 
     "SETTINGS"
 );
 pub const pauseScreen = PauseScreen.init(.three, .zero, 
     .{ 
-        .{"Continue"} ++ .{""} ** 4,
-        .{"Settings"} ++ .{""} ** 4,
-        .{"Main Menu"} ++ .{""} ** 4, 
-        .{"Quit"} ++ .{""} ** 4,
-        .{""} ** 5,
+        .{"Continue"} ++ @as([4][:0]const u8, @splat("")),
+        .{"Settings"} ++ @as([4][:0]const u8, @splat("")),
+        .{"Main Menu"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Quit"} ++ @as([4][:0]const u8, @splat("")),
+        @splat(""),
     }, 
     "PAUSED"
 );
 pub const gameOverScreen = GameOverScreen.init(.two, .zero, 
     .{ 
-        .{"Retry"} ++ .{""} ** 4, 
-        .{"Main Menu"} ++ .{""} ** 4, 
-        .{"Quit"} ++ .{""} ** 4,
-        .{""} ** 5,
-        .{""} ** 5,
+        .{"Retry"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Main Menu"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Quit"} ++ @as([4][:0]const u8, @splat("")),
+        @splat(""),
+        @splat(""),
     }, 
     "GAME OVER"
 );
 pub const controlsScreen = ControlsScreen.init(.four, .one, 
     .{
-        .{"left: ", "right: "} ++ .{""} ** 3, 
-        .{"soft drop: ", "hard drop: "} ++ .{""} ** 3,
-        .{"rotate CW: ", "rotate CCW: "} ++ .{""} ** 3, 
-        .{"pause: ", "exit: "} ++ .{""} ** 3, 
-        .{"Reset Default", "Return"} ++ .{""} ** 3, 
+        .{"left: ", "right: "} ++ @as([3][:0]const u8, @splat("")), 
+        .{"soft drop: ", "hard drop: "} ++ @as([3][:0]const u8, @splat("")),
+        .{"rotate CW: ", "rotate CCW: "} ++ @as([3][:0]const u8, @splat("")), 
+        .{"pause: ", "exit: "} ++ @as([3][:0]const u8, @splat("")), 
+        .{"Reset Default", "Return"} ++ @as([3][:0]const u8, @splat("")), 
     }, 
     "Controls"
 );
 pub const musicScreen = MusicScreen.init(.four, .zero,
     .{
-        .{"Theme Select"} ++ .{""} ** 4,
-        .{"Master Volume"} ++ .{""} ** 4,
-        .{"Music Volume"} ++ .{""} ** 4,
-        .{"SFX Volume"} ++ .{""} ** 4,
-        .{"Return"} ++ .{""} ** 4, 
+        .{"Theme Select"} ++ @as([4][:0]const u8, @splat("")),
+        .{"Master Volume"} ++ @as([4][:0]const u8, @splat("")),
+        .{"Music Volume"} ++ @as([4][:0]const u8, @splat("")),
+        .{"SFX Volume"} ++ @as([4][:0]const u8, @splat("")),
+        .{"Return"} ++ @as([4][:0]const u8, @splat("")), 
     },
     "Music"
 );
 pub const themeSelectScreen = ThemeSelectScreen.init(.three, .zero, 
     .{
-        .{"Theme A"} ++ .{""} ** 4, 
-        .{"Theme B"} ++ .{""} ** 4, 
-        .{"Theme C"} ++ .{""} ** 4, 
-        .{"Return"} ++ .{""} ** 4, 
-        .{""} ** 5,
+        .{"Theme A"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Theme B"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Theme C"} ++ @as([4][:0]const u8, @splat("")), 
+        .{"Return"} ++ @as([4][:0]const u8, @splat("")), 
+        @splat(""),
     }, 
     "Theme Select"
 );
 pub const highScoreScreen = HighScoreScreen.init(.four, .one,
     .{
-        .{"1st: ", "6th: "} ++ .{""} ** 3,
-        .{"2nd: ", "7th: "} ++ .{""} ** 3,
-        .{"3rd: ", "8th: "} ++ .{""} ** 3,
-        .{"4th: ", "9th: "} ++ .{""} ** 3,
-        .{"5th: ", "10th: "} ++ .{""} ** 3,
+        .{"1st: ", "6th: "} ++ @as([3][:0]const u8, @splat("")),
+        .{"2nd: ", "7th: "} ++ @as([3][:0]const u8, @splat("")),
+        .{"3rd: ", "8th: "} ++ @as([3][:0]const u8, @splat("")),
+        .{"4th: ", "9th: "} ++ @as([3][:0]const u8, @splat("")),
+        .{"5th: ", "10th: "} ++ @as([3][:0]const u8, @splat("")),
     },
     "High Score"
 );
@@ -192,7 +192,7 @@ pub const Menu = struct {
         const start_menu: MenuState = .{ .StartMenu = startScreen };
         return .{
             .state_idx = 0,
-            .state_hist = .{start_menu} ** DEPTH,
+            .state_hist = @splat(start_menu),
             .timer_exit = 0.0,
         };
     }

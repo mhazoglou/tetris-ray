@@ -25,7 +25,7 @@
     .fingerprint = 0xdcccf871b20f8cbe, // Changing this has security and trust implications.
     // Tracks the earliest Zig version that the package considers to be a
     // supported use case.
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     // This field is optional.
     // Each dependency must either provide a `url` and `hash`, or a `path`.
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
@@ -33,8 +33,8 @@
     // internet connectivity.
     .dependencies = .{
         .raylib = .{
-            .url = "git+https://github.com/raysan5/raylib#dbc56a87da87d973a9c5baa4e7438a9d20121d28",
-            .hash = "raylib-6.0.0-whq8uCSwLgWWeF3ec3dbG6Rr36SLFL-s2WJ1Q_2E22Bb",
+            .url = "git+https://github.com/raysan5/raylib#8571d445e94addd2d2651d3e895925b4c0f35ae9",
+            .hash = "raylib-6.0.0-whq8uBqdNwVgyXXMiJFsppqKtvYkimyfhweFdsvmMkmB",
         },
     },
     .paths = .{

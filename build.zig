@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const translate_c = b.addTranslateC(.{
-        .root_source_file = b.path("zig-pkg/raylib-6.0.0-whq8uCSwLgWWeF3ec3dbG6Rr36SLFL-s2WJ1Q_2E22Bb/src/raylib.h"),
+        .root_source_file = b.path("zig-pkg/raylib-6.0.0-whq8uBqdNwVgyXXMiJFsppqKtvYkimyfhweFdsvmMkmB/src/raylib.h"),
         .target = target,
         .optimize = optimize,
     });
@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "c", .module = translate_c.createModule() },
             },
         }),
-        .use_llvm = true,
+        //.use_llvm = true,
     });
 
     exe.root_module.linkLibrary(raylib_artifact);
@@ -49,9 +49,7 @@ pub fn build(b: *std.Build) void {
 
     run_cmd.step.dependOn(b.getInstallStep());
 
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    run_cmd.addPassthruArgs();
 
     const mod_tests = b.addTest(.{
         .root_module = b.createModule(.{

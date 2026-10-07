@@ -10,7 +10,7 @@ var item_font_size: u16 = 16;
 var banner_font_size: u16 = 80;
 var spacing: u16 = 4;
 var squareSize: u16 = 20;
-var enter_name: [NAMELENGTH:0]u8 = ("_" ** NAMELENGTH).*;
+var enter_name: [NAMELENGTH:0]u8 = @splat('_');
 
 const MINWIDTH = 400;
 const MINHEIGHT = 225;
@@ -277,7 +277,7 @@ pub const Game = struct{
                         self.drawGame();
                     }
                     self.high_score.addNewScore(idx, self.score, enter_name);
-                    enter_name = ("_" ** NAMELENGTH).*;
+                    enter_name = @splat('_');
                     self.menu.changeState(.{ .GameOverMenu = menu.gameOverScreen });
                     self.reset();
                 },
@@ -457,7 +457,7 @@ pub const Game = struct{
         self.just_held = false;
         const block_pos_arr = self.active_tetramino.get_blocks();
         // initialize with max usize by wrapping subtraction
-        var row_full_arr: [4]usize = .{ @as(usize, 0) -% 1 } ** 4;
+        var row_full_arr: [4]usize = @splat(@as(usize, 0) -% 1);
         var idx: usize = 0;
         for (block_pos_arr) |block_pos| {
             const row = @as(usize, @intCast(block_pos[0]));
@@ -793,12 +793,12 @@ pub const Game = struct{
                         const pos_x: f32 = (2 * @as(f32, @floatFromInt(col)) + 1) * @divFloor(screenWidth, 4);
                         const pos_y: f32 = @as(f32, @floatFromInt(screenHeight)) / 2 - banner_dim.y / 2 + squareSize * @as(f32, @floatFromInt(row + len_y / 2));
                         const field_dim = c.MeasureTextEx(font, field, item_font_size, spacing);
-                        const fields = @typeInfo(InputMapping).@"struct".fields;
+                        const field_names = @typeInfo(InputMapping).@"struct".field_names;
                         var any: bool = false;
-                        inline for (fields) |fld| {
-                            if (std.mem.eql(u8, fld.name, field[0..end - 2])) {
+                        inline for (field_names) |fld_name| {
+                            if (std.mem.eql(u8, fld_name, field[0..end - 2])) {
                                 any ^= true;
-                                c.DrawTextEx(font, GetKeyText(@field(self.settings.imap, fld.name)), .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
+                                c.DrawTextEx(font, GetKeyText(@field(self.settings.imap, fld_name)), .{ .x = pos_x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                                 c.DrawTextEx(font, field, .{ .x = pos_x - field_dim.x, .y = pos_y}, item_font_size, spacing, c.LIGHTGRAY);
                             }
                         } 
@@ -1098,8 +1098,8 @@ pub fn Matrix(rows: usize, columns: usize) type {
         const Self = @This();
 
         pub fn init() Self {
-            const array: [rows][columns]bool = .{ .{false} ** columns} ** rows;
-            const clr_array: [rows][columns]c.Color = .{ .{c.WHITE} ** columns} ** rows;
+            const array: [rows][columns]bool = @splat(@splat(false));
+            const clr_array: [rows][columns]c.Color = @splat(@splat(c.WHITE));
             return .{
                 .rows = rows,
                 .columns = columns,
@@ -1137,8 +1137,8 @@ pub fn Matrix(rows: usize, columns: usize) type {
                 self.color_array[r] = self.color_array[r - 1];
                 r -= 1;
             }
-            self.array[0] = .{false} ** MAXCOLS;
-            self.color_array[0] = .{c.WHITE} ** MAXCOLS;
+            self.array[0] = @splat(false);
+            self.color_array[0] = @splat(c.WHITE);
         }
 
         pub fn checkOverlap(self: *const Self, block_pos: [4][2]isize) bool {
@@ -1187,19 +1187,19 @@ pub const InputMapping = struct {
     fn rebind(self: *InputMapping, field: []const u8) c_int {
         const new_key = c.GetKeyPressed();
         var old_key: c_int = undefined;
-        const fields = @typeInfo(InputMapping).@"struct".fields;
+        const field_names = @typeInfo(InputMapping).@"struct".field_names;
         const is_clash, const clash_field = self.checkButtonClash(new_key);
         if (new_key > 0) {
-            inline for (fields) |fld| {
-                if (std.mem.eql(u8, fld.name, field)) {
-                    old_key = @field(self.*, fld.name);
-                    @field(self.*, fld.name) = new_key;
+            inline for (field_names) |fld_name| {
+                if (std.mem.eql(u8, fld_name, field)) {
+                    old_key = @field(self.*, fld_name);
+                    @field(self.*, fld_name) = new_key;
                 }
             }
             if (is_clash) {
-                inline for (fields) |fld| {
-                    if (std.mem.eql(u8, fld.name, clash_field)) {
-                        @field(self.*, fld.name) = old_key;
+                inline for (field_names) |fld_name| {
+                    if (std.mem.eql(u8, fld_name, clash_field)) {
+                        @field(self.*, fld_name) = old_key;
                     }
                 }
             }
@@ -1212,10 +1212,10 @@ pub const InputMapping = struct {
     }
 
     fn checkButtonClash(self: InputMapping, key: c_int) struct{bool, []const u8} {
-        const fields = @typeInfo(InputMapping).@"struct".fields;
-        inline for (fields) |fld| {
-            if (@field(self, fld.name) == key) {
-                return .{true, fld.name};
+        const field_names = @typeInfo(InputMapping).@"struct".field_names;
+        inline for (field_names) |fld_name| {
+            if (@field(self, fld_name) == key) {
+                return .{true, fld_name};
             }
         }
         return .{false, ""};
@@ -1271,8 +1271,8 @@ pub const HighScore = extern struct {
 };
 
 pub const empty_high_score: HighScore = .{
-    .top_ten_scores = .{0} ** 10,
-    .top_ten_names = .{("a" ** NAMELENGTH).*} ** 10,
+    .top_ten_scores = @splat(0),
+    .top_ten_names = @splat("a"),
 };
 
 pub const Settings = struct{

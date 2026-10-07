@@ -130,10 +130,10 @@ pub const Tetramino = union(enum) {
             },
             .O => |piece| {
                 return switch (piece.orientation) {
-                    .Spawn =>            .{ .{ 0, 0} } ** 5,
-                    .Clockwise =>        .{ .{ 1, 0} } ** 5,
-                    .DoubleRotated => .{ .{ 1,-1} } ** 5,
-                    .CounterClockwise =>    .{ .{ 0,-1} } ** 5,
+                    .Spawn =>            @splat(.{ 0, 0}),
+                    .Clockwise =>        @splat(.{ 1, 0}),
+                    .DoubleRotated =>    @splat(.{ 1,-1}),
+                    .CounterClockwise => @splat(.{ 0,-1}),
                 };
             },
             .J, .L, .T, .S, .Z => |piece| {
