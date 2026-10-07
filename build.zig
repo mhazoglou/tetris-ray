@@ -33,7 +33,6 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "c", .module = translate_c.createModule() },
             },
         }),
-        //.use_llvm = true,
     });
 
     exe.root_module.linkLibrary(raylib_artifact);

@@ -1,4 +1,4 @@
-Made with Zig 0.16, should compile with 0.16 or future compatible version.
+Made with Zig 0.17, should compile with 0.17 or future compatible version.
 
 When the project is downloaded it can be run with the command:
 
