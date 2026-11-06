@@ -178,6 +178,11 @@ pub const Game = struct{
                     }
                     self.drawGame();
                 },
+                .AnimateHardDrop => |cells| {
+                    animateBlur(self, cells);
+                    //self.drawGame();
+                    //self.menu.back();
+                },
                 .AnimateLineClear => |row_full_arr| {
                     var idx: usize = 0;
                     for (row_full_arr) |row| {
@@ -264,7 +269,7 @@ pub const Game = struct{
                         }
 
                         key = c.GetCharPressed();  // Check next character in the queue
-
+ 
                         if (c.IsKeyPressed(c.KEY_BACKSPACE) and (letterCount > 0)) {
                             letterCount -= 1;
                             enter_name[letterCount] = '_'; 
@@ -402,6 +407,7 @@ pub const Game = struct{
             }
             self.score += 2 * cells;
             self.resetTSpin();
+            self.menu.push(.{ .AnimateHardDrop = cells });
         }
 
         self.timer_drop += c.GetFrameTime();
@@ -495,6 +501,7 @@ pub const Game = struct{
                 break :blk @constCast(row_arr[0..idx]);
             },
             .AnimateLockPiece => &.{},
+            // .AnimateHardDrop => &.{},
             else => unreachable,
         };
         std.mem.sort(usize, row_full_arr, {}, comptime std.sort.asc(usize));
@@ -776,7 +783,7 @@ pub const Game = struct{
 
         switch (self.menu.getState()) {
             .InGame => drawPlayArea(self, self.settings.ghost_piece),
-            .AnimateLockPiece, .AnimateLineClear => drawPlayArea(self, false),
+            .AnimateLockPiece, .AnimateLineClear, .AnimateHardDrop => drawPlayArea(self, false),
             .StartMenu, .SettingsMenu, 
             .PauseMenu, .GameOverMenu, 
             .ThemeSelectMenu, .MusicMenu => |screen| drawMenu(self, screen),
@@ -969,9 +976,10 @@ pub const Game = struct{
         const tetra_color = active_tetramino.get_color();
         for (2..MAXROWS) |row| {
             for (0..state.columns) |col| {
-                if (state.array[row][col]) {
-                    c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
-                } else if (active_tetramino.isOccupied(row, col)) {
+                // if (state.array[row][col]) {
+                c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
+                //} else 
+                if (active_tetramino.isOccupied(row, col)) {
                     c.DrawRectangle(x, y, squareSize, squareSize, tetra_color);
                 }
                 if (draw_ghost) {
@@ -1099,7 +1107,7 @@ pub fn Matrix(rows: usize, columns: usize) type {
 
         pub fn init() Self {
             const array: [rows][columns]bool = @splat(@splat(false));
-            const clr_array: [rows][columns]c.Color = @splat(@splat(c.WHITE));
+            const clr_array: [rows][columns]c.Color = @splat(@splat(c.BLACK));
             return .{
                 .rows = rows,
                 .columns = columns,
@@ -1138,7 +1146,7 @@ pub fn Matrix(rows: usize, columns: usize) type {
                 r -= 1;
             }
             self.array[0] = @splat(false);
-            self.color_array[0] = @splat(c.WHITE);
+            self.color_array[0] = @splat(c.BLACK);
         }
 
         pub fn checkOverlap(self: *const Self, block_pos: [4][2]isize) bool {
@@ -1462,3 +1470,33 @@ fn animateFlash(game: *Game, comptime func: anytype,
     game.drawGame();
 }
 
+fn animateBlur(game: *Game, cells: u64) void {
+    game.handlePause();
+    game.timer_fade += c.GetFrameTime();
+    const final_pos = game.active_tetramino.get_blocks();
+    const color = game.active_tetramino.get_color();
+    if (game.timer_fade <= FADETIME) {
+        for (final_pos) |block| {
+            const row: usize = @intCast(block[0]);
+            const col: usize = @intCast(block[1]);
+            for (0..cells) |cell| {
+                const occupied = game.state.array[row - cell][col];
+                if (!occupied) {
+                    game.state.update(row - cell, col, occupied, 
+                        c.Fade(color, 1.0 - game.timer_fade / FADETIME)
+                        //    @as(f32, @floatFromInt(cells - cell)) / @as(f32, @floatFromInt(cells))
+                        //)
+                    );
+                }
+            }
+        }
+    } else {
+    //if (game.timer_fade > FADETIME) {
+        game.in_lock_delay = false;
+        game.menu.back();
+        game.scoreAndClearLines();
+        game.menu.back();
+        game.timer_fade = 0;
+    }
+    game.drawGame();
+}

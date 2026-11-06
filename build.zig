@@ -73,7 +73,8 @@ pub fn build(b: *std.Build) void {
             .imports = &.{
                 .{ .name = "c", .module = translate_c.createModule() },
             },
-        }),    });
+        }),
+    });
     exe_tests.root_module.linkLibrary(raylib_artifact);
 
     const run_exe_tests = b.addRunArtifact(exe_tests);
