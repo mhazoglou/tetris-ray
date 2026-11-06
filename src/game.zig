@@ -180,8 +180,6 @@ pub const Game = struct{
                 },
                 .AnimateHardDrop => |cells| {
                     animateBlur(self, cells);
-                    //self.drawGame();
-                    //self.menu.back();
                 },
                 .AnimateLineClear => |row_full_arr| {
                     var idx: usize = 0;
@@ -501,7 +499,7 @@ pub const Game = struct{
                 break :blk @constCast(row_arr[0..idx]);
             },
             .AnimateLockPiece => &.{},
-            // .AnimateHardDrop => &.{},
+            .AnimateHardDrop => &.{},
             else => unreachable,
         };
         std.mem.sort(usize, row_full_arr, {}, comptime std.sort.asc(usize));
@@ -976,11 +974,12 @@ pub const Game = struct{
         const tetra_color = active_tetramino.get_color();
         for (2..MAXROWS) |row| {
             for (0..state.columns) |col| {
-                // if (state.array[row][col]) {
-                c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
-                //} else 
-                if (active_tetramino.isOccupied(row, col)) {
+                if (state.array[row][col]) {
+                    c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
+                } else if (active_tetramino.isOccupied(row, col)) {
                     c.DrawRectangle(x, y, squareSize, squareSize, tetra_color);
+                } else {
+                    c.DrawRectangle(x, y, squareSize, squareSize, state.color_array[row][col]);
                 }
                 if (draw_ghost) {
                     for (blocks_pos) |block| {
@@ -1475,6 +1474,11 @@ fn animateBlur(game: *Game, cells: u64) void {
     game.timer_fade += c.GetFrameTime();
     const final_pos = game.active_tetramino.get_blocks();
     const color = game.active_tetramino.get_color();
+    if (@mod(game.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+        flashPiece(game, final_pos, color);
+    } else {
+        flashPiece(game, final_pos, c.Fade(color, 0.5));
+    }
     if (game.timer_fade <= FADETIME) {
         for (final_pos) |block| {
             const row: usize = @intCast(block[0]);
@@ -1484,8 +1488,6 @@ fn animateBlur(game: *Game, cells: u64) void {
                 if (!occupied) {
                     game.state.update(row - cell, col, occupied, 
                         c.Fade(color, 1.0 - game.timer_fade / FADETIME)
-                        //    @as(f32, @floatFromInt(cells - cell)) / @as(f32, @floatFromInt(cells))
-                        //)
                     );
                 }
             }
