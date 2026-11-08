@@ -178,9 +178,6 @@ pub const Game = struct{
                     }
                     self.drawGame();
                 },
-                .AnimateHardDrop => |cells| {
-                    animateBlur(self, cells);
-                },
                 .AnimateLineClear => |row_full_arr| {
                     var idx: usize = 0;
                     for (row_full_arr) |row| {
@@ -401,11 +398,14 @@ pub const Game = struct{
                 cells += 1;
             } else {
                 self.lockTetramino();
+                while (self.timer_fade < FADETIME) { 
+                    animateBlur(self, cells);
+                }
+                self.timer_fade = 0;
                 c.PlaySound(lock_sound);
             }
             self.score += 2 * cells;
             self.resetTSpin();
-            self.menu.push(.{ .AnimateHardDrop = cells });
         }
 
         self.timer_drop += c.GetFrameTime();
@@ -499,7 +499,6 @@ pub const Game = struct{
                 break :blk @constCast(row_arr[0..idx]);
             },
             .AnimateLockPiece => &.{},
-            .AnimateHardDrop => &.{},
             else => unreachable,
         };
         std.mem.sort(usize, row_full_arr, {}, comptime std.sort.asc(usize));
@@ -773,15 +772,9 @@ pub const Game = struct{
 
         c.BeginDrawing();
 
-        if (c.IsKeyDown(self.settings.imap.exit)) {
-            c.DrawTextEx(font, "Keep holding to exit game...", 
-                .{ .x = 0, .y = 0 }, 2 * item_font_size, spacing, c.LIGHTGRAY
-            );
-        }
-
         switch (self.menu.getState()) {
             .InGame => drawPlayArea(self, self.settings.ghost_piece),
-            .AnimateLockPiece, .AnimateLineClear, .AnimateHardDrop => drawPlayArea(self, false),
+            .AnimateLockPiece, .AnimateLineClear => drawPlayArea(self, false),
             .StartMenu, .SettingsMenu, 
             .PauseMenu, .GameOverMenu, 
             .ThemeSelectMenu, .MusicMenu => |screen| drawMenu(self, screen),
@@ -876,6 +869,13 @@ pub const Game = struct{
             },
             else => {},
         }
+
+        if (c.IsKeyDown(self.settings.imap.exit)) {
+            c.DrawTextEx(font, "Keep holding to exit game...", 
+                .{ .x = 0, .y = 0 }, 2 * item_font_size, spacing, c.LIGHTGRAY
+            );
+        }
+
         c.EndDrawing();
     }
 
@@ -1479,26 +1479,17 @@ fn animateBlur(game: *Game, cells: u64) void {
     } else {
         flashPiece(game, final_pos, c.Fade(color, 0.5));
     }
-    if (game.timer_fade <= FADETIME) {
-        for (final_pos) |block| {
-            const row: usize = @intCast(block[0]);
-            const col: usize = @intCast(block[1]);
-            for (0..cells) |cell| {
-                const occupied = game.state.array[row - cell][col];
-                if (!occupied) {
-                    game.state.update(row - cell, col, occupied, 
-                        c.Fade(color, 1.0 - game.timer_fade / FADETIME)
-                    );
-                }
+    for (final_pos) |block| {
+        const row: usize = @intCast(block[0]);
+        const col: usize = @intCast(block[1]);
+        for (0..cells) |cell| {
+            const occupied = game.state.array[row - cell][col];
+            if (!occupied) {
+                game.state.update(row - cell, col, occupied, 
+                    c.Fade(color, 1.0 - game.timer_fade / FADETIME)
+                );
             }
         }
-    } else {
-    //if (game.timer_fade > FADETIME) {
-        game.in_lock_delay = false;
-        game.menu.back();
-        game.scoreAndClearLines();
-        game.menu.back();
-        game.timer_fade = 0;
     }
     game.drawGame();
 }
