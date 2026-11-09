@@ -186,7 +186,7 @@ pub const Game = struct{
                         }
                         idx += 1;
                     }
-                    animateFlash(self, flashLines, 
+                    self.animateFlash(flashLines, 
                         .{self, row_full_arr[0..idx], c.RAYWHITE},
                         .{self, row_full_arr[0..idx], c.BLACK},
                     );
@@ -194,11 +194,11 @@ pub const Game = struct{
                 .AnimateLockPiece => {
                     const block_pos_arr = self.active_tetramino.get_blocks();
                     const color = self.active_tetramino.get_color();
-                    animateFlash(self, flashPiece, 
+                    self.animateFlash( flashPiece, 
                         .{self, block_pos_arr, color},
                         .{self, block_pos_arr, c.Fade(color, 0.5)},
                     );
-                    flashPiece(self, block_pos_arr, color);
+                    self.flashPiece(block_pos_arr, color);
                 },
                 .ToggleGhost => {
                     c.UpdateMusicStream(music);
@@ -399,7 +399,7 @@ pub const Game = struct{
             } else {
                 self.lockTetramino();
                 while (self.timer_fade < FADETIME) { 
-                    animateBlur(self, cells);
+                    self.animateBlur(cells);
                 }
                 self.timer_fade = 0;
                 c.PlaySound(lock_sound);
@@ -1093,6 +1093,63 @@ pub const Game = struct{
         }
     }
 
+    fn flashPiece(self: *Game, block_pos_arr: [4][2]isize, color: c.Color) void {
+        for (block_pos_arr) |block_pos| {
+            const row = @as(usize, @intCast(block_pos[0]));
+            const col = @as(usize, @intCast(block_pos[1]));
+            self.state.update(row, col, true, color);
+        }
+    }
+
+    fn flashLines(self: *Game, row_full: []const usize, color:c. Color) void { 
+        for (row_full) |row| {
+            self.state.setRowColor(row, color);
+        } 
+    }
+
+    fn animateFlash(self: *Game, comptime func: anytype, 
+        args1: anytype, args2: anytype) void {
+        self.handlePause();
+        self.timer_fade += c.GetFrameTime();
+        if (@mod(self.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+            @call(.auto, func, args1);
+        } else {
+            @call(.auto, func, args2);
+        }
+        if (self.timer_fade > FADETIME) {
+            self.in_lock_delay = false;
+            self.scoreAndClearLines();
+            self.menu.back();
+            self.timer_fade = 0;
+        }
+        self.drawGame();
+    }
+
+    fn animateBlur(self: *Game, cells: u64) void {
+        self.handlePause();
+        self.timer_fade += c.GetFrameTime();
+        const final_pos = self.active_tetramino.get_blocks();
+        const color = self.active_tetramino.get_color();
+        if (@mod(self.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
+            flashPiece(self, final_pos, color);
+        } else {
+            flashPiece(self, final_pos, c.Fade(color, 0.5));
+        }
+        for (final_pos) |block| {
+            const row: usize = @intCast(block[0]);
+            const col: usize = @intCast(block[1]);
+            for (0..cells) |cell| {
+                const occupied = self.state.array[row - cell][col];
+                if (!occupied) {
+                    self.state.update(row - cell, col, occupied, 
+                        c.Fade(color, 1.0 - self.timer_fade / FADETIME)
+                    );
+                }
+            }
+        }
+        self.drawGame();
+    }
+
 };
 
 pub fn Matrix(rows: usize, columns: usize) type {
@@ -1435,61 +1492,4 @@ pub fn GetKeyText(key: c_int) [:0]const u8 {
         c.KEY_KP_EQUAL        => "KPEQU",      // Key: Keypad =
         else => "",
     };
-}
-
-fn flashPiece(game: *Game, block_pos_arr: [4][2]isize, color: c.Color) void {
-    for (block_pos_arr) |block_pos| {
-        const row = @as(usize, @intCast(block_pos[0]));
-        const col = @as(usize, @intCast(block_pos[1]));
-        game.state.update(row, col, true, color);
-    }
-}
-
-fn flashLines(game: *Game, row_full: []const usize, color:c. Color) void { 
-    for (row_full) |row| {
-        game.state.setRowColor(row, color);
-    } 
-}
-
-fn animateFlash(game: *Game, comptime func: anytype, 
-    args1: anytype, args2: anytype) void {
-    game.handlePause();
-    game.timer_fade += c.GetFrameTime();
-    if (@mod(game.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
-        @call(.auto, func, args1);
-    } else {
-        @call(.auto, func, args2);
-    }
-    if (game.timer_fade > FADETIME) {
-        game.in_lock_delay = false;
-        game.scoreAndClearLines();
-        game.menu.back();
-        game.timer_fade = 0;
-    }
-    game.drawGame();
-}
-
-fn animateBlur(game: *Game, cells: u64) void {
-    game.handlePause();
-    game.timer_fade += c.GetFrameTime();
-    const final_pos = game.active_tetramino.get_blocks();
-    const color = game.active_tetramino.get_color();
-    if (@mod(game.timer_fade, FLASHT) > (0.5 * FLASHT) ) {
-        flashPiece(game, final_pos, color);
-    } else {
-        flashPiece(game, final_pos, c.Fade(color, 0.5));
-    }
-    for (final_pos) |block| {
-        const row: usize = @intCast(block[0]);
-        const col: usize = @intCast(block[1]);
-        for (0..cells) |cell| {
-            const occupied = game.state.array[row - cell][col];
-            if (!occupied) {
-                game.state.update(row - cell, col, occupied, 
-                    c.Fade(color, 1.0 - game.timer_fade / FADETIME)
-                );
-            }
-        }
-    }
-    game.drawGame();
 }
